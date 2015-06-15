@@ -7,10 +7,10 @@ if  edge gt 0 then begin
     struct=size(im, /STRUCTURE)
     imdims=size(im)
     tmp=MAKE_ARRAY(struct.dimensions[0:imdims[0]-1]+2*edge, TYPE=struct.TYPE)
-    if imdims[0] eq 1 then tmp[edge:(edge+imdims[1]-1)]=im
-    if imdims[0] eq 2 then tmp[edge:(edge+imdims[1]-1),edge:(edge+imdims[2]-1)]=im
-    if imdims[0] eq 3 then tmp[edge:(edge+imdims[1]-1),edge:(edge+imdims[2]-1),edge:(edge+imdims[3]-1)]=im
-    if imdims[0] eq 4 then tmp[edge:(edge+imdims[1]-1),edge:(edge+imdims[2]-1),edge:(edge+imdims[3]-1),edge:(edge+imdims[4]-1)]=im
+    if imdims[0] eq 1 then tmp[edge]=im
+    if imdims[0] eq 2 then tmp[edge,edge]=im
+    if imdims[0] eq 3 then tmp[edge,edge,edge]=im
+    if imdims[0] eq 4 then tmp[edge,edge,edge,edge]=im
 endif
 if  edge lt 0 then begin
     imdims=size(im)
