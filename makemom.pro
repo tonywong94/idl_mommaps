@@ -285,8 +285,8 @@ SXDELPAR, mhd, 'CRVAL3'
 SXDELPAR, mhd, 'CRPIX3'
 SXDELPAR, mhd, 'CDELT3'
 mom0gm = mom0 * abs(h.cdelt[2]) / 1.0e3
-SXADDPAR, mhd, 'DATAMAX', max(mom0gm,/nan)
-SXADDPAR, mhd, 'DATAMIN', 0, before='HISTORY'
+SXADDPAR, mhd, 'DATAMAX', max(mom0gm,/nan), before='HISTORY'
+SXADDPAR, mhd, 'DATAMIN', min(mom0gm,/nan), before='HISTORY'
 WRITEFITS, baseroot+'.mom0.fits', float(mom0gm), mhd
 emom0gm = emom0 * abs(h.cdelt[2]) / 1.0e3
 SXADDPAR, mhd, 'DATAMAX', max(emom0gm,/nan), before='HISTORY'
