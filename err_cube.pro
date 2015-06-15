@@ -44,7 +44,9 @@ if  keyword_set(pattern) then begin
   print, "Current minimum rms value: ", img_min
   img=img/img_min
   if (size(img))[0] eq 2 then begin
-    img=CMREPLICATE(img,dim[2])
+    img0=img
+    img=make_array((size(img))[1],(size(img))[2],dim[2],/float,/nozero)
+    for i=0,dim[2]-1 do img[0,0,i]=img0
   endif
 endif else begin
   img=im*0.0+1.0

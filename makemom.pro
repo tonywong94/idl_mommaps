@@ -180,7 +180,9 @@ endif else begin
     endif
     esz = size(ecube)
     if  esz[0] eq 2 then begin
-        ecube=cmreplicate(ecube,sz[3])
+        ecube0=ecube
+        ecube=make_array(esz[1],esz[2],sz[3],/float,/nozero)
+        for i=0,sz[3]-1 do ecube[0,0,i]=ecube0
         ;ecube[where(data ne data,/null)]=!values.f_nan
     endif
     ecube[where(ecube eq 0,/null)]=!values.f_nan
@@ -191,7 +193,7 @@ endif else begin
         if keyword_set(rmsest) then ecube=rmsest*ecube/min(ecube,/nan)
     endelse
     if  keyword_set(kelvin) and strpos(strupcase(sxpar(ehd,'BUNIT')),'JY/B') ne -1 then begin
-        ecube=ecube * h.jypb2k
+        ecube=temporary(ecube) * h.jypb2k
         SXADDPAR, ehd, 'BUNIT', 'K'
     endif
     emap = total(ecube, 3, /nan) / (total(ecube eq ecube, 3)>1)
