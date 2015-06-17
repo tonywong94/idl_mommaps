@@ -170,6 +170,10 @@ if  n_elements(errfile) eq 0 then begin
 ; OR ELSE USE PROVIDED ERROR CUBE
 endif else begin
     ecube = readfits(errfile, ehd, /silent)
+    if  keyword_set(kelvin) and strpos(strupcase(sxpar(ehd,'BUNIT')),'JY/B') ne -1 then begin
+        ecube=temporary(ecube) * h.jypb2k
+        SXADDPAR, ehd, 'BUNIT', 'K'
+    endif
     if  n_elements(xyrange) eq 4 then begin
         HEXTRACT3D,ecube,ehd,tmp,tmphd,xyrange
         SXADDPAR, tmphd, 'DATAMAX', max(tmp,/nan), before='HISTORY'
@@ -192,10 +196,6 @@ endif else begin
     endif else begin
         if keyword_set(rmsest) then ecube=rmsest*ecube/min(ecube,/nan)
     endelse
-    if  keyword_set(kelvin) and strpos(strupcase(sxpar(ehd,'BUNIT')),'JY/B') ne -1 then begin
-        ecube=temporary(ecube) * h.jypb2k
-        SXADDPAR, ehd, 'BUNIT', 'K'
-    endif
     emap = total(ecube, 3, /nan) / (total(ecube eq ecube, 3)>1)
     emap[where(emap eq 0.0,/null)]=!values.f_nan
     data[where(ecube ne ecube,/null)]=!values.f_nan
