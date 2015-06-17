@@ -1,7 +1,8 @@
 PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
       vrange=vrange, xyrange=xyrange, dvmin=dvmin, baseroot=baseroot, $
       thresh=thresh, edge=edge, guard=guard, smopar=smopar, senmsk=senmsk, $
-      replace0=replace0, mask0=mask0, kelvin=kelvin, dorms=dorms, pvmom0=pvmom0
+      replace0=replace0, mask0=mask0, kelvin=kelvin, dorms=dorms, pvmom0=pvmom0, $
+      gain2err=gain2err, useall=useall
       
 ;+
 ; NAME:
@@ -54,6 +55,11 @@ PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
 ;   KELVIN    --  force conversion from Jy/beam to Kelvin
 ;   DORMS     --  estimate the channel noise from the data.  This is used to scale
 ;                 ERRFILE if given.  Cannot be used if RMSEST is given.
+;   GAIN2ERR  --  use this flag if the input cube is primary gain corrected and you
+;                 provide the gain cube as ERRFILE.  Noise cube is then proportional to
+;                 1/ERRFILE.  Must be used with DORMS option unless RMSEST is given.
+;   USEALL    --  set this to use all channels for rms noise estimation (DORMS).  By
+;                 default only the first 2 and last 2 channels are used.
 ;   PVMOM0    --  produce mom0 images by collapsing cube along x & y axes 
 ;                 (not constant RAs or Decs!)
 ;   
@@ -65,6 +71,7 @@ PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
 ;   20150527  tw  initial version based on Rui Xue's idl_moments code
 ;   20150601  tw  implement guard parameter
 ;   20150610  tw  give estr format I0
+;   20150617  tw  gain2err and useall parameters
 ;
 ;-
 
@@ -140,6 +147,7 @@ if  n_elements(maskfile) eq 0 then begin
     exmask=data*0.0+1.0
 endif else begin
     exmask=READFITS(maskfile, exmaskhd, /silent)
+    exmask[where(finite(exmask,/nan))]=0.0
     if  n_elements(xyrange) eq 4 then begin
         HEXTRACT3D, exmask, exmaskhd, tmp, tmphd, xyrange
         SXADDPAR, tmphd, 'DATAMAX', max(tmp,/nan), before='HISTORY'
@@ -156,11 +164,12 @@ endif else begin
     vrange = [min(h.v),max(h.v)]
     tag_outvrange = -1
 endelse
+in_vrange = where(h.v ge vrange[0] and h.v le vrange[1])
 
 ; GENERATE ERROR CUBE AND 2D MAP IF NOT GIVEN
 if  n_elements(errfile) eq 0 then begin 
     if  keyword_set(dorms) then begin
-        ecube=ERR_CUBE(data)
+        ecube=ERR_CUBE(data,useall=useall)
     endif else begin
         if keyword_set(rmsest) then rms=rmsest else rms=1.
         ecube=data*0.0 + rms
@@ -191,10 +200,14 @@ endif else begin
     endif
     ecube[where(ecube eq 0,/null)]=!values.f_nan
     if  keyword_set(dorms) then begin
-        tmp=ERR_CUBE(data,pattern=ecube)
+        if keyword_set(gain2err) then ecube = 1./ecube
+        tmp=ERR_CUBE(data,pattern=ecube,useall=useall)
         ecube=tmp
     endif else begin
-        if keyword_set(rmsest) then ecube=rmsest*ecube/min(ecube,/nan)
+        if keyword_set(rmsest) then begin
+            if keyword_set(gain2err) then ecube = 1./ecube
+            ecube=rmsest*ecube/min(ecube,/nan)
+        endif
     endelse
     emap = total(ecube, 3, /nan) / (total(ecube eq ecube, 3)>1)
     emap[where(emap eq 0.0,/null)]=!values.f_nan
@@ -218,18 +231,19 @@ endif
 
 ; CALCULATE MOMENTS
 ;   h.v: velocity in km/s
+;   note that the vrange input is obeyed for snrpk image
 if  n_elements(dvmin) ne 0 then begin
     nchmin=ceil(dvmin/(abs(h.cdelt[2])/1.0e3))*1.0
 endif else begin
     nchmin=0.
 endelse
-MASKMOMENT, data, mask, ecube, h.v, $
+MASKMOMENT, data[*,*,[in_vrange]], mask[*,*,[in_vrange]], $
+            ecube[*,*,[in_vrange]], h.v[in_vrange], $
             mom0 = mom0, mom1 = mom1, mom2 = mom2, $
             emom0 = emom0, emom1 = emom1, emom2 = emom2, $
             peak = peak, snrpk=snrpk,$
             mask0=mask0, nchmin=nchmin
 mhd = hd
-;cmds = RECALL_COMMANDS()
 
 histlabel = 'IDL_MOMMAPS: '
 SXADDPAR, mhd, 'HISTORY', histlabel+systime()
