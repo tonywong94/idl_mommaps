@@ -28,9 +28,8 @@ FUNCTION maskguard_3d, mask, guard = guard
 ;    Shamelessly hacked from fits2props and dilate_mask routines by Erik Rosolowsky.
 ;    Annie H, 1 March 2011
 ;    tw  20150601 - modified for use in mommaps
+;    tw  20150616 - use padding to avoid wraparound
 ;
-
-  expmask = mask*0.0
 
   if  n_elements(guard) eq 0 then begin
     guard = [0,0,0]
@@ -39,6 +38,9 @@ FUNCTION maskguard_3d, mask, guard = guard
   endif else if  n_elements(guard) eq 2 then begin
     guard = [guard[0],guard[1],0]
   endif
+
+  mask = padding(mask, max(guard))
+  expmask = mask*0.0
 
   print, 'Expanding mask by (x,y,v) = (',guard[0],guard[1],guard[2],') pixels'
 
@@ -54,7 +56,7 @@ FUNCTION maskguard_3d, mask, guard = guard
       endfor
   endfor 
  
-  expmask = expmask gt 0
+  expmask = padding(expmask gt 0,-max(guard))
   return, expmask
 
 end
