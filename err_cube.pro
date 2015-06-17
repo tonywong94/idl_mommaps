@@ -1,7 +1,7 @@
 FUNCTION ERR_CUBE,  im, $
                     pattern=pattern,$
                     mask=mask,$
-                    planes=planes
+                    planes=planes, useall=useall
 ;+
 ; NAME:
 ;   ERR_CUBE
@@ -19,6 +19,8 @@ FUNCTION ERR_CUBE,  im, $
 ;   [planes]  line-free velocity planes for error estimations
 ;             default: [0,1,-1,-2] (first & last two channels)
 ;   [mask]    optional mask cube; zero values excluded from noise level estimation       
+;   USEALL    --  set this to use all channels for rms noise estimation (DORMS).  By
+;                 default only the first 2 and last 2 channels are used.
 ;
 ; OUTPUTS:
 ;   sen       error cube
@@ -57,7 +59,8 @@ assi=im*0.0
 assi2d=total(im,3,/nan)*0.0+1.0    
 if not keyword_set(planes) then begin
   sch=where(total(total(im eq im,1),1) ne 0)
-  planes=[sch[0],sch[1],sch[-2],sch[-1]]
+  if  keyword_set(useall) then planes = sch $
+      else planes=[sch[0],sch[1],sch[-2],sch[-1]]
 endif
 for i=0,n_elements(planes)-1 do begin
   assi[*,*,planes[i]]=assi2d
