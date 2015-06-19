@@ -147,7 +147,7 @@ if  n_elements(maskfile) eq 0 then begin
     exmask=data*0.0+1.0
 endif else begin
     exmask=READFITS(maskfile, exmaskhd, /silent)
-    exmask[where(finite(exmask,/nan))]=0.0
+    exmask[where(finite(exmask,/nan),/null)]=0.0
     if  n_elements(xyrange) eq 4 then begin
         HEXTRACT3D, exmask, exmaskhd, tmp, tmphd, xyrange
         SXADDPAR, tmphd, 'DATAMAX', max(tmp,/nan), before='HISTORY'
