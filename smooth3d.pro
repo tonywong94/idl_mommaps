@@ -53,7 +53,7 @@ PRO SMOOTH3D, im, hd, $
 ;
 ; HISTORY:
 ;
-;   20110306  RX  original version
+;   20110306  RX  introduced
 ;   20110328  RX  handle Nan & 3d cube
 ;   20110401  RX  merge <convol2beam.pro> into <smo3d.pro>
 ;   20130227  RX  change the name from smo3d.pro to smooth3d.pro
@@ -64,7 +64,8 @@ PRO SMOOTH3D, im, hd, $
 ;                 svel=0 will not trigger 3D smoothing
 ;   20130625  RX  improve the compatibility of the image in JY/PIXEL (e.g. deconvolution model) 
 ;   20150528  TW  Streamlined for use in MOMMAPS package                 
-;
+;   20150529  RX  use convol() instead of convol_ff() for better performance in small-kernel cases.
+;                 preformance improvement: x0.2-0.3(memory)/x1.2-1.5(speed)
 ;-
 
 currentExcept = !Except
@@ -84,29 +85,34 @@ fpsf=fbeam
 if  n_elements(fpsf) eq 1 then fpsf=[fpsf,fpsf,0.0]
 ipsf=[0.,0.,0.]
 if  n_elements(psf_org) eq 0 then begin
-  RADIOHEAD, hd, s = h
-  ipsf[0]=h.bmaj  ; in arcsec
-  ipsf[1]=h.bmin  ; in arcsec
-  ipsf[2]=h.bpa   ; in degrees (astro convention)
+    RADIOHEAD,hd,s=h
+    ipsf[0]=h.bmaj  ; in arcsec
+    ipsf[1]=h.bmin  ; in arcsec
+    ipsf[2]=h.bpa   ; in degrees (astro convention)
 endif
 if  n_elements(psf_org) eq 1 then begin
-  ipsf[0]=psf_org  
-  ipsf[1]=psf_org 
-  ipsf[2]=0.0
+    ipsf[0]=psf_org  
+    ipsf[1]=psf_org 
+    ipsf[2]=0.0
+    if  psf_org[0] lt 0 then begin
+        rd_hd,hd,s=h
+        ipsf[0]=h.bmaj  ; in arcsec
+        ipsf[1]=h.bmin  ; in arcsec
+        ipsf[2]=h.bpa   ; in degrees (astro convention)
+    endif
 endif
 if  n_elements(psf_org) eq 3 then begin
-  ipsf=psf_org
+    ipsf=psf_org
 endif
 GKERNEL,fpsf[0],fpsf[1],fpsf[2],ipsf[0],ipsf[1],ipsf[2],bmaj,bmin,bpa,ifail
-
 im_bpa=bpa+rotang
 
 ; REPLACE MISSING DATA & MASKED PIXELS WITH ZERO 
 impad=im
 if  n_elements(mask) eq 0 then begin
-  immask=im & immask[*]=0.0
+    immask=im & immask[*]=0.0
 endif else begin
-  immask=mask
+    immask=mask
 endelse
 tagnan=where(finite(im,/NAN) or immask ne 0.0)
 if tagnan[0] ne -1 then impad[tagnan]=0.0
@@ -115,93 +121,76 @@ hdout=hd
 
 if  ifail eq 0 then begin
 
-  bmaj=bmaj/psize
-  bmin=bmin/psize
-  psfsize=ceil(bmaj)*6+1
-  psfsize=min([psfsize,floor(naxis1/2)*2-1,floor(naxis2/2)*2-1])
+    bmaj=bmaj/psize
+    bmin=bmin/psize
+    psfsize=ceil(bmaj)*6+1
+    psfsize=min([psfsize,floor(naxis1/2)*2-1,floor(naxis2/2)*2-1])
   
-  ; GENERATE SMOOTHING KERNEL
-  psf=PSF_GAUSSIAN(npixel=[psfsize,psfsize],fwhm=[bmin,bmaj],/NORMALIZE,/DOUBLE)
-  psf=rot(psf,-im_bpa,1.0,(psfsize-1)/2,(psfsize-1)/2,/INTERP,missing=0.0)
-  psf=psf>0d
-  psf=psf/total(psf)
-  if n_elements(svel) eq 1 then begin
-    if svel ne 0.0 then begin
-      csize=abs(sxpar(hd,'cdelt3')/1000.0)    ; channel size in km/s
-      naxis3=abs(sxpar(hd,'naxis3'))
-      fvel=svel/csize
-      spesize=ceil(fvel)*6+1
-      spesize=min([spesize,floor(naxis3/2)*2-1])
-      message,/info, "channel width [km/s]   : "+string(csize)
-      message,/info, "kernel  fwhm  [channel]: "+string(fvel)
-      psf=PSF_GAUSSIAN(npixel=[psfsize,psfsize,spesize],fwhm=[bmin,bmaj,fvel],/NORMALIZE,/DOUBLE,ndimen=3)
-      for i=0,spesize-1 do begin
-        psf[*,*,i]=rot(psf[*,*,i],-im_bpa,1.0,(psfsize-1)/2,(psfsize-1)/2,/INTERP,missing=0)
-      endfor
-      psf=psf>0.0
-      psf=psf/total(psf)
+    ; GENERATE SMOOTHING KERNEL
+    psf=PSF_GAUSSIAN(npixel=[psfsize,psfsize],fwhm=[bmin,bmaj],/NORMALIZE,DOUBLE=0)
+    psf=rot(psf,-im_bpa,1.0,(psfsize-1)/2,(psfsize-1)/2,/INTERP,missing=0.0,cubic=-0.5)
+    psf=psf>0d
+    psf=psf/total(psf)
+    
+    psf=reform(rotate(psf,2),psfsize,psfsize,1)
+    imout=convol(impad,psf)
+    
+    if n_elements(svel) eq 1 then begin
+        if  svel ne 0.0 then begin
+            csize=abs(sxpar(hd,'cdelt3')/1000.0)    ; channel size in km/s
+            naxis3=abs(sxpar(hd,'naxis3'))
+            fvel=svel/csize
+            spesize=ceil(fvel)*6+1
+            spesize=min([spesize,floor(naxis3/2)*2-1])
+            message,/info, "channel width [km/s]   : "+string(csize)
+            message,/info, "kernel  fwhm  [channel]: "+string(fvel)
+            message,/info, "kernel size   [channel]: "+string(spesize)
+            lsf=psf_gaussian(npixel=spesize,fwhm=fvel,/NORMALIZE,DOUBLE=0,ndimen=1)
+            for j=0,naxis2-1 do begin
+                for i=0,naxis1-1 do begin
+                    imout[i,j,*]=convol(reform(imout[i,j,*]),lsf,/edge_mirror)
+                endfor
+            endfor
+        endif
     endif
-  endif
-  message,/info, "kernel size:"+strjoin(size(psf,/d),' ')
-  
-  ; SMOOTHING
-  if (size(psf))[0] eq 3 then begin
-    if  n_elements(padchan) eq 0 then padchan=0
-    tmp=dblarr(naxis1,naxis2,naxis3+2*padchan)
-    tmp[*,*,padchan:(naxis3+padchan-1)]=impad
-    tmp=CONVOL3D(tmp,psf)
-    imout=tmp[*,*,padchan:(naxis3+padchan-1)]
-  endif
-  if (size(psf))[0] eq 2 then begin
-    if  (size(impad))[0] eq 3 then begin
-      for i=0,(size(impad))[3]-1 do begin
-        imout[*,*,i]=convol_fft(double(impad[*,*,i]), psf)
-      endfor
-    endif else begin
-      imout=convol_fft(impad,psf)
-    endelse
-  endif
 
-  ; SCALE PIXEL VALUE IF UNITS IN JY/BEAM
-  if n_elements(scale) ne 1 then begin
-    scale=1.0
-    if  STRPOS(STRUPCASE(sxpar(hd, 'BUNIT')), 'JY/B') ne -1  then $
-        scale=fpsf[0]*fpsf[1]/(ipsf[0]*ipsf[1])
-    if  STRPOS(STRUPCASE(sxpar(hd, 'BUNIT')), 'JY/P') ne -1  then begin
-        scale=abs((fpsf[0]*fpsf[1])/(psize^2.0)*2.*!dpi/(8.*alog(2.)))
-        SXADDPAR, hdout, 'BUNIT','JY/BEAM'
+    ; SCALE PIXEL VALUE IF UNITS IN JY/BEAM
+    if  n_elements(scale) ne 1 then begin
+        scale=1.0
+        if  STRPOS(STRUPCASE(sxpar(hd, 'BUNIT')), 'JY/B') ne -1  then $
+            scale=fpsf[0]*fpsf[1]/(ipsf[0]*ipsf[1])
+        if  STRPOS(STRUPCASE(sxpar(hd, 'BUNIT')), 'JY/P') ne -1  then begin
+            scale=abs((fpsf[0]*fpsf[1])/(psize^2.0)*2.*!dpi/(8.*alog(2.)))
+            SXADDPAR, hdout, 'BUNIT','JY/BEAM'
+        endif
     endif
-  endif
-  message,/info, "scale factor: "+strjoin(scale)
-  imout=float(imout*scale)
+    message,/info, "scale factor: "+strjoin(scale)
+    imout=float(imout*scale)
 
-  SXADDPAR, hdout, 'BMAJ', fpsf[0]/60./60.
-  SXADDPAR, hdout, 'BMIN', fpsf[1]/60./60.
-  SXADDPAR, hdout, 'BPA',  fpsf[2]
+    SXADDPAR, hdout, 'BMAJ', fpsf[0]/60./60.
+    SXADDPAR, hdout, 'BMIN', fpsf[1]/60./60.
+    SXADDPAR, hdout, 'BPA',  fpsf[2]
 
 endif else begin
   
-  message,/info,"**"
-  message,/info,"the target beam is smaller than the original beam!"
-  message,/info,"return original image (with optional externel masking) and header"
-  message,/info,"**"
-  scale=1.0
+    message,/info,"**"
+    message,/info,"the target beam is smaller than the original beam!"
+    message,/info,"return original image (with optional externel masking) and header"
+    message,/info,"**"
+    scale=1.0
 
 endelse
 
 ; RESTORE MISSING DATA & MASKED PIXELS
-if tagnan[0] ne -1 then imout[tagnan]=!VALUES.F_NAN
-if keyword_set(keep0) then begin
-  imout[where(im eq 0.0,/null)]=0.0
-endif
+if  tagnan[0] ne -1 then imout[tagnan]=!VALUES.F_NAN
+if  keyword_set(keep0) then imout[where(im eq 0.0,/null)]=0.0
 SXADDPAR, hdout, 'DATAMAX', max(imout,/nan)
 SXADDPAR, hdout, 'DATAMIN', min(imout,/nan)
 
-floating_point_underflow = 32
+floating_point_underflow=32
 status = Check_Math()         ; Get status and reset accumulated math error register.
-IF(status AND NOT floating_point_underflow) NE 0 THEN $
-  Message, 'IDL Check_Math() error: ' + StrTrim(status, 2)
-  
+if  (status and not floating_point_underflow) ne 0 then $
+    message, 'IDL Check_Math() error: ' + strtrim(status, 2)
 !Except = currentExcept
   
 END
