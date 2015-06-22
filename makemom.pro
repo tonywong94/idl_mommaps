@@ -9,7 +9,7 @@ PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
 ;   MAKEMOM
 ;
 ; PURPOSE:
-;   produce moment maps with masking
+;   produce moment maps with masking from PPV image cubes
 ;
 ; ARGUMENTS:
 ;   FILENAME  --  FITS data cube [no default].  3rd axis should be velocity (M/S).
@@ -17,7 +17,7 @@ PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
 ;                 result in the corresponding data pixels being dropped.
 ;                 default: unset => error is assumed constant with position
 ;   RMSEST    --  estimate of channel noise, in same units as cube.  If ERRFILE is
-;                 given, this is taken to be the noise at the minimum (e.g. center).
+;                 given, this is used to set the rms at the minimum (e.g. center).
 ;                 default: unset => use error map if given, or assume rms=1, or 
 ;                 get rms from data cube if /DORMS is requested.
 ;   MASKFILE  --  external masking cube (value=1 for valid data, 0 otherwise).
@@ -42,10 +42,10 @@ PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
 ;                 it is used for v; if two values are given they are used for x, y.
 ;                 default: unset => mask is not extended in any direction
 ;   SMOPAR    --  for mask generation, first degrade the cube angular resolution to 
-;                 <smopar[0]> arcsec and/or smooth spectra with a Gaussian function of 
-;                 fwhm=<smopar[1]> km/s for signal detection.
+;                 <SMOPAR[0]> arcsec and/or smooth spectra with a Gaussian function of 
+;                 fwhm=<SMOPAR[1]> km/s for signal detection.
 ;                 default: [0.,0.] => no pre-smoothing applied
-;   SENMSK    --  regions where the noise level is higher than <senmsk>*min(errcube)
+;   SENMSK    --  regions where the noise level is higher than <SENMSK>*min(ERRCUBE)
 ;                 (e.g. edges of field-of-view) will be masked out.
 ;                 default: unset => no additional masking applied
 ;   
@@ -57,10 +57,10 @@ PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
 ;                 ERRFILE if given.  Cannot be used if RMSEST is given.
 ;   GAIN2ERR  --  use this flag if the input cube is primary gain corrected and you
 ;                 provide the gain cube as ERRFILE.  Noise cube is then proportional to
-;                 1/ERRFILE.  Must be used with DORMS option unless RMSEST is given.
-;   USEALL    --  set this to use all channels for rms noise estimation (DORMS).  By
+;                 1/ERRFILE.  Must be used with /DORMS option unless RMSEST is given.
+;   USEALL    --  set this to use all channels for rms noise estimation (/DORMS).  By
 ;                 default only the first 2 and last 2 channels are used.
-;   PVMOM0    --  produce mom0 images by collapsing cube along x & y axes 
+;   PVMOM0    --  produce additional mom0 images by collapsing cube along x & y axes 
 ;                 (not constant RAs or Decs!)
 ;   
 ; OUTPUTS:
@@ -72,6 +72,7 @@ PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
 ;   20150601  tw  implement guard parameter
 ;   20150610  tw  give estr format I0
 ;   20150617  tw  gain2err and useall parameters
+;   20150620  tw  use guard[2] in file name
 ;
 ;-
 
@@ -99,7 +100,9 @@ endif else begin
     estr = ''
 endelse
 if  keyword_set(guard) then begin
-    gstr = 'g'+string(guard[0],format='(I0)')
+    if  n_elements(guard) eq 1 then guard = [0,0,guard[0]]
+    if  n_elements(guard) eq 2 then guard = [guard[0],guard[1],0]
+    gstr = 'g'+string(guard[2],format='(I0)')
 endif else begin
     guard = [0, 0, 0]
     gstr = ''
@@ -141,7 +144,7 @@ if  keyword_set(replace0) then begin
     data[where(data eq 0.0,/null)]=!values.f_nan
 endif
 
-; APPLY INPUT MASK AND VELOCITY WINDOW IF GIVEN
+; READ IN INPUT MASK AND SET VELOCITY WINDOW IF GIVEN
 sz = size(data)
 if  n_elements(maskfile) eq 0 then begin 
     exmask=data*0.0+1.0
