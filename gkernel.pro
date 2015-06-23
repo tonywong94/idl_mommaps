@@ -63,9 +63,9 @@ endif else begin
   ifail = 0
 endelse
 if  not keyword_set(quiet) then begin
-  message,/info, "original beam: "+string(bmaj2)+','+string(bmin2)+',   ('+string(bpa2)+')'
-  message,/info, "target   beam: "+string(float(bmaj1))+','+string(float(bmin1))+',   ('+string(float(bpa1))+')'
-  message,/info, "convol kernel: "+string(bmaj)+','+string(bmin)+',   ('+string(bpa)+')'
+  message,/info, "original beam: "+string(bmaj2)+','+string(bmin2)+',   ('+string(bpa2,format='(i4)')+')'
+  message,/info, "target   beam: "+string(float(bmaj1))+','+string(float(bmin1))+',   ('+string(float(bpa1),format='(i4)')+')'
+  message,/info, "convol kernel: "+string(bmaj)+','+string(bmin)+',   ('+string(bpa,format='(i4)')+')'
 endif
 
 END
