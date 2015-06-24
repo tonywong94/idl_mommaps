@@ -64,7 +64,7 @@ PRO SMOOTH3D, im, hd, $
 ;   20130625  RX  improve the compatibility of the image in JY/PIXEL (e.g. deconvolution model) 
 ;   20150528  TW  streamlined for use in MOMMAPS package                 
 ;   20150529  RX  use convol() instead of convol_ff() for better performance in small-kernel cases.
-;                 smaller memory footprint: x0.2-0.3
+;                 smaller memory footprint: x0.2-0.3, works for a 1600x1533x266 cube (8Gb machine)
 ;-
 
 currentExcept = !Except
@@ -174,7 +174,9 @@ if  ifail eq 0 then begin
             for j=0,naxis2-1 do begin
                 for i=0,naxis1-1 do begin
                     if total(imout[i,j,*],/nan) ne 0 then $
-                       imout[i,j,*]=convol_fft(reform(imout[i,j,*]),lsf)
+                       imout[i,j,*]=convol(reform(imout[i,j,*]),lsf,$
+                                    edge_mirror=0,$
+                                    edge_wrap=1)
                 endfor
             endfor
         endif
