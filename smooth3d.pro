@@ -107,18 +107,15 @@ GKERNEL,fpsf[0],fpsf[1],fpsf[2],ipsf[0],ipsf[1],ipsf[2],bmaj,bmin,bpa,ifail
 im_bpa=bpa+rotang
 
 ; REPLACE MISSING DATA & MASKED PIXELS WITH ZERO 
-impad=im
-if  n_elements(mask) eq 0 then begin
-    tagnan=where(finite(im,/NAN))
-endif else begin
-    tagnan=where(finite(im,/NAN) or mask ne 0.0)
-endelse
-if tagnan[0] ne -1 then impad[tagnan]=0.0
-imout=impad
+imout=im
+if  n_elements(mask) eq 0 $ 
+    then imout[where(finite(im,/NAN),/null)]=0.0 $
+    else imout[where(finite(im,/NAN) or mask ne 0.0,/null)]=0.0
 hdout=hd
 
-if  ifail eq 0 then begin
 
+if  ifail eq 0 then begin
+    
     bmaj=bmaj/psize
     bmin=bmin/psize
     psfsize=ceil(bmaj)*6+1
@@ -131,21 +128,21 @@ if  ifail eq 0 then begin
     psf=psf/total(psf)
     
     ; SPATIAL SMOOTHING
-    ww=sqrt(n_elements(impad))
+    ww=sqrt(n_elements(imout))
     kk=sqrt(n_elements(psf))/(!CPU.TPOOL_NTHREADS*0.8)
     ww=sqrt(8.*alog(ww)/alog(2.0))
-    sz=size(impad)
+    sz=size(imout)
     szpsf=size(psf)
-    message,/info," data   dimensions: "+strjoin(strtrim(size(impad,/d),2)," ")
+    message,/info," data   dimensions: "+strjoin(strtrim(size(imout,/d),2)," ")
     message,/info," kernel dimensions: "+strjoin(strtrim(size(psf,/d),2)," ")
     if  kk gt ww then begin
         ; prefer convol_fft() when the kernel is large
         message,/info,' use convol_fft()'
         if  sz[0] eq 2 then begin
-            imout=convol_fft(impad,psf)
+            imout=convol_fft(imout,psf)
         endif else begin
             for i=0,sz[3]-1 do begin
-                imout[0,0,i]=convol_fft(impad[*,*,i],psf)
+                imout[0,0,i]=convol_fft(imout[*,*,i],psf)
             endfor
         endelse
     endif else begin
@@ -156,7 +153,7 @@ if  ifail eq 0 then begin
         psf=rotate(psf,2)
         if  sz[0] eq 3 then psf=reform(psf,psfsize,psfsize,1)
         if  sz[0] eq 4 then psf=reform(psf,psfsize,psfsize,1,1)
-        imout=convol(impad,psf,nan=0,normal=0,edge_wrap=0,edge_mirror=0)
+        imout=convol(imout,psf,nan=0,normal=0,edge_wrap=0,edge_mirror=0,edge_zero=1)
     endelse
     
     ; VELOCITY SMOOTHING
@@ -193,8 +190,8 @@ if  ifail eq 0 then begin
         endif
     endif
     message,/info," scale  factor:     "+strjoin(strtrim(scale,2))
-    imout=float(imout*scale)
-
+    if  scale[0] ne 1.0 then imout=temporary(imout)*scale
+    
     SXADDPAR, hdout, 'BMAJ', fpsf[0]/60./60.
     SXADDPAR, hdout, 'BMIN', fpsf[1]/60./60.
     SXADDPAR, hdout, 'BPA',  fpsf[2]
@@ -210,8 +207,11 @@ endif else begin
 endelse
 
 ; RESTORE MISSING DATA & MASKED PIXELS
-if  tagnan[0] ne -1 then imout[tagnan]=!VALUES.F_NAN
+if  n_elements(mask) eq 0 $
+    then imout=temporary(imout)+im-im $ 
+    else imout[where(finite(im,/NAN) or mask ne 0.0,/null)]=!VALUES.F_NAN
 if  keyword_set(keep0) then imout[where(im eq 0.0,/null)]=0.0
+
 SXADDPAR, hdout, 'DATAMAX', max(imout,/nan)
 SXADDPAR, hdout, 'DATAMIN', min(imout,/nan)
 
