@@ -4,7 +4,8 @@ PRO SMOOTH3D, im, hd, $
               svel=svel, $
               mask=mask, scale=scale,$
               ifail=ifail,$
-              keep0=keep0
+              keep0=keep0,$
+              no_ft=no_ft
 ;+
 ; NAME:
 ;   SMOOTH3D
@@ -34,6 +35,7 @@ PRO SMOOTH3D, im, hd, $
 ;               smoothed image. This may not be a good choice for smoothing a masked 
 ;               mom0 from spectral cube, because it may screen out some low-brightness 
 ;               emission which could be detected in a mom0 image from a smoothed cube.
+;   [no_ft]     overrides the use of FFT, using IDL function convol() if proper.
 ;   
 ; OUTPUTS:
 ;   IMOUT       output data
@@ -135,7 +137,7 @@ if  ifail eq 0 then begin
     szpsf=size(psf)
     message,/info," data   dimensions: "+strjoin(strtrim(size(imout,/d),2)," ")
     message,/info," kernel dimensions: "+strjoin(strtrim(size(psf,/d),2)," ")
-    if  kk gt ww then begin
+    if  kk gt ww or ~keyword_set(no_ft) then begin
         ; prefer convol_fft() when the kernel is large
         message,/info,' use convol_fft()'
         if  sz[0] eq 2 then begin
