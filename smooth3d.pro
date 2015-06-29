@@ -35,7 +35,7 @@ PRO SMOOTH3D, im, hd, $
 ;               smoothed image. This may not be a good choice for smoothing a masked 
 ;               mom0 from spectral cube, because it may screen out some low-brightness 
 ;               emission which could be detected in a mom0 image from a smoothed cube.
-;   [no_ft]     overrides the use of FFT, using IDL function convol() if proper.
+;   [no_ft]     override the use of FFT, using convol() if the kernel is small.
 ;   
 ; OUTPUTS:
 ;   IMOUT       output data
@@ -65,8 +65,9 @@ PRO SMOOTH3D, im, hd, $
 ;                 svel=0 will not trigger 3D smoothing
 ;   20130625  RX  improve the compatibility of the image in JY/PIXEL (e.g. deconvolution model) 
 ;   20150528  TW  streamlined for use in MOMMAPS package                 
-;   20150529  RX  use convol() instead of convol_ff() for better performance in small-kernel cases.
-;                 smaller memory footprint: x0.2-0.3, works for a 1600x1533x266 cube (8Gb machine)
+;   20150529  RX  reduce memory footprint (x0.2-0.3) and remove dependency of convol3d.pro
+;                 optionally use convol() for better performance in small-kernel cases.
+;                 
 ;-
 
 currentExcept = !Except
@@ -130,14 +131,12 @@ if  ifail eq 0 then begin
     psf=psf/total(psf)
     
     ; SPATIAL SMOOTHING
-    ww=sqrt(n_elements(imout))
-    kk=sqrt(n_elements(psf))/(!CPU.TPOOL_NTHREADS*0.8)
-    ww=sqrt(8.*alog(ww)/alog(2.0))
     sz=size(imout)
-    szpsf=size(psf)
     message,/info," data   dimensions: "+strjoin(strtrim(size(imout,/d),2)," ")
     message,/info," kernel dimensions: "+strjoin(strtrim(size(psf,/d),2)," ")
-    if  kk gt ww or ~keyword_set(no_ft) then begin
+    nm_direct=n_elements(imout[*,*,0,0])*1.0*n_elements(psf)
+    nm_fft=4.*n_elements(imout[*,*,0,0])*(alog(n_elements(imout[*,*,0,0]))/alog(2.0)+1)
+    if  nm_fft le nm_direct or ~keyword_set(no_ft) then begin
         ; prefer convol_fft() when the kernel is large
         message,/info,' use convol_fft()'
         if  sz[0] eq 2 then begin
@@ -150,12 +149,16 @@ if  ifail eq 0 then begin
     endif else begin
         ; prefer convol() when the kernel is small (no padding overheads like fft)
         ; PSF is rotated by 180 degrees to produce a "true" convolution in convol()
-        ; note: the options /edge*/normal/nan will slow convol() signifcantly.
-        message,/info,' use convol()' 
+        ; note: the options /edge*/normal/nan will slow down convol() signifcantly.
+        message,/info,' use convol()'
         psf=rotate(psf,2)
-        if  sz[0] eq 3 then psf=reform(psf,psfsize,psfsize,1)
-        if  sz[0] eq 4 then psf=reform(psf,psfsize,psfsize,1,1)
-        imout=convol(imout,psf,nan=0,normal=0,edge_wrap=0,edge_mirror=0,edge_zero=1)
+        if  sz[0] eq 2 then begin
+            imout=convol(imout,psf,nan=0,normal=0,edge_wrap=0,edge_mirror=0,edge_zero=1)
+        endif else begin
+            for i=0,sz[3]-1 do begin
+                imout[0,0,i]=convol(imout[*,*,i],psf,nan=0,normal=0,edge_wrap=0,edge_mirror=0,edge_zero=1)
+            endfor
+        endelse
     endelse
     
     ; VELOCITY SMOOTHING
