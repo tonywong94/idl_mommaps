@@ -9,7 +9,9 @@ PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
 ;   MAKEMOM
 ;
 ; PURPOSE:
-;   produce moment maps with masking from PPV image cubes
+;   Produce moment maps with masking from PPV image cubes.  This program generates
+;   images of moments 0, 1, 2 and their respective errors, as well as peak brightness
+;   and peak S/N maps.  User should provide an estimate of the noise in the cube.
 ;
 ; ARGUMENTS:
 ;   FILENAME  --  FITS data cube [no default].  3rd axis should be velocity (M/S).
@@ -73,6 +75,7 @@ PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
 ;   20150610  tw  give estr format I0
 ;   20150617  tw  gain2err and useall parameters
 ;   20150620  tw  use guard[2] in file name
+;   20150712  tw  output flux table from masked mom-0
 ;
 ;-
 
@@ -247,6 +250,7 @@ MASKMOMENT, data[*,*,[in_vrange]], mask[*,*,[in_vrange]], $
             peak = peak, snrpk=snrpk,$
             mask0=mask0, nchmin=nchmin
 mhd = hd
+bunit = SXPAR(mhd,'BUNIT')
 
 histlabel = 'IDL_MOMMAPS: '
 SXADDPAR, mhd, 'HISTORY', histlabel+systime()
@@ -262,7 +266,7 @@ SXADDPAR, mhd, 'HISTORY', histlabel+'guard=['+strcompress(guard[0],/r)+$
 if n_elements(dvmin) gt 0 then $
     SXADDPAR, mhd, 'HISTORY', histlabel+'dvmin='+strcompress(dvmin,/r)
 
-; OUTPUT MASK CUBE
+; OUTPUT MASK CUBE AND MASKED CUBE
 SXADDPAR,mhd,'DATAMAX',2.0, before='HISTORY'
 SXADDPAR,mhd,'DATAMIN',-1.0, before='HISTORY'
 nan_tag=where(data ne data,nan_ct)
@@ -272,7 +276,19 @@ if  thresh gt 0.0 then begin
     SXADDPAR,mhd,'DATAMAX', max(mask*data,/nan), before='HISTORY'
     SXADDPAR,mhd,'DATAMIN', min(mask*data,/nan), before='HISTORY'
     WRITEFITS,baseroot+'.mskd.fits',mask*data,mhd
-endif
+    fluxdata=total(total(mask*data,1,/nan),1,/nan)
+endif else begin
+    fluxdata=total(total(data,1,/nan),1,/nan)
+endelse
+
+; OUTPUT FLUX VECTOR
+if strpos(strupcase(sxpar(mhd,'BUNIT')),'JY/B') ne -1 then begin
+    fluxdata = fluxdata/h.ppbeam
+    write_csv,baseroot+'.flux.out',h.v,fluxdata,header=['# '+h.ctype[2],'Flux(Jy)']
+endif else begin
+    write_csv,baseroot+'.flux.out',h.v,fluxdata,header=['# '+h.ctype[2], $
+        'Flux('+strtrim(bunit,2)+'*PIX)']
+endelse
 
 ; OUTPUT 2D ERROR MAP (SKIP IF ERROR MAP PROVIDED)
 if  n_elements(errfile) eq 0 then begin 
@@ -289,7 +305,6 @@ endif
 SXADDPAR, mhd, 'DATAMAX', max(peak,/nan), before='HISTORY'
 SXADDPAR, mhd, 'DATAMIN', min(peak,/nan), before='HISTORY'
 WRITEFITS, baseroot+'.peak.fits', float(peak), mhd
-bunit = SXPAR(hd,'BUNIT')
 
 ; PEAK SNR
 SXADDPAR, mhd, 'BUNIT', 'SNR', before='HISTORY'
