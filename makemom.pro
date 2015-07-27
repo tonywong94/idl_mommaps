@@ -140,6 +140,12 @@ endif
 ; OUTPUT SOME INFO
 print,replicate('-',35)
 print,'spectral cube size: ',size(data,/d)
+print,'pixel spacing     : '+string(abs(h.cdelt[0])*3600.,format='(F4.1)') $
+    +' arcsec x '+string(abs(h.cdelt[1])*3600.,format='(F4.1)') $
+    +' arcsec x '+string(h.cdelt[2]/1.e3,format='(F5.1)')+' km/s'
+print,'beam FWHM maj, min: '+string(h.bmaj,format='(F6.2)')+'  ' $
+    +string(h.bmin,format='(F6.2)')+'   eff: ' $
+    +string(sqrt(h.bmaj*h.bmin),format='(F6.2)')+' arcsec'
 print,replicate('-',35)
 
 ; BLANKING
