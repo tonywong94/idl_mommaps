@@ -33,15 +33,15 @@ SXADDPAR,tmphd,'NAXIS',2
 HEXTRACT,oldim[*, *, 0],tmphd,tmpim,newhd,$
     xyrange[0],xyrange[1],xyrange[2],xyrange[3],/silent
 
-SXADDPAR,newhd,'NAXIS3',sxpar(oldhd, 'NAXIS3')
-SXADDPAR,newhd,'NAXIS4',sxpar(oldhd, 'NAXIS4')
+SXADDPAR,newhd,'NAXIS3',sxpar(oldhd, 'NAXIS3'),after='NAXIS2'
+SXADDPAR,newhd,'NAXIS4',sxpar(oldhd, 'NAXIS4'),after='NAXIS3'
 
-cpkey=['NAXIS3','NAXIS4']
-for i=0,n_elements(cpkey)-1 do begin
-    tmp=SXPAR(oldhd,cpkey[i],count=ct)
-    if ct ne 0  then SXADDPAR,newhd,cpkey[i],sxpar(oldhd,cpkey[i]) $
-                else SXDELPAR,newhd,cpkey[i]
-endfor
+;cpkey=['NAXIS3','NAXIS4']
+;for i=0,n_elements(cpkey)-1 do begin
+;    tmp=SXPAR(oldhd,cpkey[i],count=ct)
+;    if ct ne 0  then SXADDPAR,newhd,cpkey[i],sxpar(oldhd,cpkey[i]) $
+;                else SXDELPAR,newhd,cpkey[i]
+;endfor
 
 SXADDPAR,newhd,'NAXIS',sxpar(oldhd, 'NAXIS')
 
