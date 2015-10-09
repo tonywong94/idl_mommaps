@@ -34,6 +34,7 @@ if  sz[0] gt 2 then begin
         newim[0,0,i]=newim_i
         newhd=newhd_i
     endfor
+    sxaddpar,newhd,'NAXIS3',sz[3]
 endif else begin
     hrot, oldim, oldhd, newim, newhd, $
         angle, xc, yc,$
