@@ -76,8 +76,25 @@ if  (where(eim ne eim))[0] ne -1 then begin
     bb=find_boundary(where(eim eq eim),xsize=sz[0],ysize=sz[1])
     oplot,bb[0,*],bb[1,*],color=cgcolor('yellow'),linestyle=2
 endif
-    
 
+
+
+getrot,imhd,rotang,cdelt
+imsz=size(im,/d)
+rotang_s=rotang+45.0
+ds=30./2.0/512*min(imsz)*sqrt(2)
+xc=imsz[0]*0.92
+yc=imsz[1]*0.08
+one_arrow,xc+ds*sin(rotang_s/180*!dpi),yc-ds*cos(rotang_s/180*!dpi),+90+rotang,'N',color='yellow',/data,charsize=1.0
+one_arrow,xc+ds*sin(rotang_s/180*!dpi),yc-ds*cos(rotang_s/180*!dpi),+180+rotang,'E',color='yellow',/data,charsize=1.0
+    
+RADIOHEAD,imhd,s=s
+psize=abs(s.cdelt[0])*3600
+tvellipse,s.bmaj/2.0/psize,s.bmin/2.0/psize,$
+    sz[0]/10.0,sz[1]/10.0,$
+    s.bpa-90.0+rotang,$
+    /data,noclip=0,color=cgcolor('cyan'),/fill
+    
 subpos_xv=[pos[0],pos[3]+0.01,pos[2],pos[3]+0.9/(scx+1.0)*scx]
 cgloadct,13
 cgimage,imxv,pos=subpos_xv,stretch=1,/noe
