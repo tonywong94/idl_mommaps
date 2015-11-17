@@ -1,4 +1,4 @@
-PRO PLTMOM,prefix,scale=scale
+PRO PLTMOM,prefix,scale=scale,label=label
 ;+
 ; NAME:
 ;   PLTMOM
@@ -34,13 +34,13 @@ endif
 set_plot, 'ps'
 device, filename=prefix+'.mom01.eps', $
     bits_per_pixel=8,/encapsulated,$
-    xsize=10,ysize=6,/inches,/col,xoffset=0,yoffset=0
+    xsize=8,ysize=4.8,/inches,/col,xoffset=0,yoffset=0
 
 !p.thick = 1.5
 !x.thick = 1.5
 !y.thick = 1.5
 !z.thick = 1.5
-!p.charsize=1.2
+!p.charsize=1.0
 !p.charthick=1.5
 xyouts,'!6'
 
@@ -108,7 +108,9 @@ for i=0,1 do begin
         sz[0]/10.0,sz[1]/10.0,$
         s.bpa-90.0,$
         /data,noclip=0,color=cgcolor('cyan'),/fill
-  
+    
+    if  keyword_set(label) then al_legend,label,/top,/right,textcolor='yellow',box=0
+    
 endfor
 
 device, /close

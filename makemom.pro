@@ -281,7 +281,7 @@ if  thresh gt 0.0 then begin
     WRITEFITS,baseroot+'.mask.fits',float(mask),mhd
     SXADDPAR,mhd,'DATAMAX', max(mask*data,/nan), before='HISTORY'
     SXADDPAR,mhd,'DATAMIN', min(mask*data,/nan), before='HISTORY'
-    WRITEFITS,baseroot+'.mskd.fits',mask*data,mhd
+    WRITEFITS,baseroot+'.mskd.fits',float(mask*data),mhd
     fluxdata=total(total(mask*data,1,/nan),1,/nan)
 endif else begin
     fluxdata=total(total(data,1,/nan),1,/nan)

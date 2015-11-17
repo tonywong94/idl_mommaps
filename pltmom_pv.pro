@@ -1,4 +1,4 @@
-PRO PLTMOM_PV,prefix
+PRO PLTMOM_PV,prefix,label=label
 ;+
 ; NAME:
 ;   PLTMOM_PV
@@ -52,13 +52,13 @@ vels=vels/1000.
 set_plot, 'ps'
 device, filename=prefix+'.mom0pv.eps', $
     bits_per_pixel=8,/encapsulated,$
-    xsize=10,ysize=10.*(sz[1]+sz_xv[1])/(sz[0]+sz_vy[0]),/inches,/col,xoffset=0,yoffset=0
+    xsize=8,ysize=8.*(sz[1]+sz_xv[1])/(sz[0]+sz_vy[0]),/inches,/col,xoffset=0,yoffset=0
 
 !p.thick = 1.5
 !x.thick = 1.5
 !y.thick = 1.5
 !z.thick = 1.5
-!p.charsize=1.2
+!p.charsize=1.0
 !p.charthick=1.5
 xyouts,'!6'
 
@@ -94,6 +94,8 @@ tvellipse,s.bmaj/2.0/psize,s.bmin/2.0/psize,$
     sz[0]/10.0,sz[1]/10.0,$
     s.bpa-90.0+rotang,$
     /data,noclip=0,color=cgcolor('cyan'),/fill
+
+if  keyword_set(label) then al_legend,label,/top,/right,textcolor='yellow',box=0
     
 subpos_xv=[pos[0],pos[3]+0.01,pos[2],pos[3]+0.9/(scx+1.0)*scx]
 cgloadct,13
