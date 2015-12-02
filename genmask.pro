@@ -70,7 +70,7 @@ im_smo=im
 sen_smo=err
 
 ; SMOOTH DATA IF REQUESTED
-if spar[0] gt 0.0 then begin
+if  spar[0] gt 0.0 then begin
     nchan=(size(im,/d))[2]
     SMOOTH3D,im/err,hd,im_smo,hd_smo,[spar[0],spar[0],0.],svel=spar[1]
     sen_smo=ERR_CUBE(im_smo,planes=indgen(nchan))
@@ -80,7 +80,7 @@ if spar[0] gt 0.0 then begin
 endif
 
 ; GENERATE MASK BY SIGMA CLIPPING (MIN 2 CHANS)
-if sig gt 0.0 then begin
+if  sig gt 0.0 then begin
     mask = im*0.0
     mask[where(im_smo gt sen_smo*sig,/null)]=1.0
     mask = padding(mask,1)

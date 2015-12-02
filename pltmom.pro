@@ -56,8 +56,8 @@ for i=0,1 do begin
     pos=[0.08,0.1,0.52,0.85]+i*[0.46,0.0,0.46,0.0]
     
     ;   COLOR SCALING
+    loadct,13
     if  i eq 0 then begin
-        CGLOADCT,13
         minvalue=min(im,/nan)
         maxvalue=max(im,/nan)
         if  minvalue eq maxvalue then begin
@@ -66,7 +66,6 @@ for i=0,1 do begin
         CGIMAGE,im,pos=pos,stretch=1,/noe,/KEEP_ASPECT_RATIO,minvalue=minvalue,maxvalue=maxvalue
     endif
     if  i eq 1 then begin
-        CGLOADCT,13
         CGIMAGE,im,pos=pos,stretch=1,/noe,/KEEP_ASPECT_RATIO
     endif
   
@@ -74,7 +73,7 @@ for i=0,1 do begin
     psize=abs(s.cdelt[0])*3600
     sz=size(im,/d)
 
-    CGLOADCT,0
+    loadct,0
     if  i eq 1 then ytickformat='(A1)' else ytickformat=''
     imcontour,im,imhd,$
         /noe,/nodata,pos=pos,$
@@ -95,7 +94,7 @@ for i=0,1 do begin
     endif
     
     pos=[pos[0],pos[3],pos[2],pos[3]]+[0.0,0.06,0.0,0.10]
-    cgloadct,13
+    loadct,13
     if  i eq 0 then title='Intensity ['+strtrim(sxpar(imhd,'BUNIT'),2)+']'
     if i eq 1 then title='Velocity Field ['+strtrim(sxpar(imhd,'BUNIT'),2)+']'
     crange=[min(im,/nan),max(im,/nan)]
@@ -103,7 +102,7 @@ for i=0,1 do begin
     if crange[0] eq crange[1] or (where(im eq im))[0] eq -1 then crange=[-1.,1.]
     cgCOLORBAR, range=crange, POSITION=pos,title=title,tlocation='TOP',tickinterval=tickint
     
-    cgloadct,0
+    loadct,0
     tvellipse,s.bmaj/2.0/psize,s.bmin/2.0/psize,$
         sz[0]/10.0,sz[1]/10.0,$
         s.bpa-90.0,$

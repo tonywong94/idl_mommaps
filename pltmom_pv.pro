@@ -65,7 +65,7 @@ xyouts,'!6'
 ; MOM-0 (XY) PLOT 
 pos=[0.1,0.1,0.1+0.88/(scx+1.0),0.1+0.88/(scy+1.0)]
 
-cgloadct,13
+loadct,13
 cgimage,im,pos=pos,stretch=1,/noe
 imcontour,im,imhd,nlevels=10,$
     /noe,pos=pos,/nodata,color='red',AXISCOLOR='red',subtitle=' '
@@ -98,9 +98,9 @@ tvellipse,s.bmaj/2.0/psize,s.bmin/2.0/psize,$
 if  keyword_set(label) then al_legend,label,/top,/right,textcolor='yellow',box=0
     
 subpos_xv=[pos[0],pos[3]+0.01,pos[2],pos[3]+0.9/(scx+1.0)*scx]
-cgloadct,13
+loadct,13
 cgimage,imxv,pos=subpos_xv,stretch=1,/noe
-cgloadct,0
+loadct,0
 plot,[0,1],[min(vels),max(vels)],/nodata,/noe,pos=subpos_xv,$
     xstyle=5,ystyle=1,$
     ytitle='Velocity [km/s]',color=cgcolor('red')
@@ -112,9 +112,9 @@ imcontour,im,imhd,nlevels=10,$
     subtitle=' ',xticklen=!p.ticklen*(0.6/0.25),xtitle=' ',ytitle=' '
     
 subpos_yv=[pos[2]+0.01,pos[1],pos[2]+0.9/(scy+1.0)*scy,pos[3]]
-cgloadct,13
+loadct,13
 cgimage,imvy,pos=subpos_yv,stretch=1,/noe;,minvalue=0.0
-cgloadct,0
+loadct,0
 plot,[min(vels),max(vels)],[0,1],/nodata,/noe,pos=subpos_yv,$
     xstyle=1,ystyle=5,$
     xtitle='Velocity [km/s]',color=cgcolor('red')
