@@ -60,6 +60,7 @@ FUNCTION GENMASK, im, err=err, hd=hd,$
 ;   
 ;-
 
+ 
 forward_function dilate_mask
 
 if not keyword_set(spar) then spar=[0.0,0.0]
@@ -72,7 +73,11 @@ sen_smo=err
 ; SMOOTH DATA IF REQUESTED
 if  spar[0] gt 0.0 then begin
     nchan=(size(im,/d))[2]
-    SMOOTH3D,im/err,hd,im_smo,hd_smo,[spar[0],spar[0],0.],svel=spar[1]
+    SMOOTH3D,im/err,hd,im_smo,hd_smo,[spar[0],spar[0],0.],svel=spar[1],ifail=ifail
+    if  ifail ne 0 then begin
+        errmsg = 'ERROR - the target beam is too small!'
+        message,'ERROR - ' + errmsg,level=1
+    endif
     sen_smo=ERR_CUBE(im_smo,planes=indgen(nchan))
     ; calculate rms after clipping based on MIRIAD sigest.for
     mask1 = abs(im_smo) lt 2.5*sqrt(!PI/2)*meanabsdev(im_smo,/nan)
