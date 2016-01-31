@@ -76,6 +76,7 @@ PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
 ;   20150617  tw  gain2err and useall parameters
 ;   20150620  tw  use guard[2] in file name
 ;   20150712  tw  output flux table from masked mom-0
+;   20160131  tw  don't output masked cube; allow 2D input mask; output 2D mask
 ;
 ;-
 
@@ -159,6 +160,11 @@ if  n_elements(maskfile) eq 0 then begin
     exmask=data*0.0+1.0
 endif else begin
     exmask=READFITS(maskfile, exmaskhd, /silent)
+    if (size(exmask))[0] eq 2 or (size(exmask))[3] eq 1 then begin
+        exmask0=exmask
+        exmask=make_array(sz[1],sz[2],sz[3],/float,/nozero)
+        for i=0,sz[3]-1 do exmask[0,0,i]=exmask0
+    endif
     exmask[where(finite(exmask,/nan),/null)]=0.0
     if  n_elements(xyrange) eq 4 then begin
         HEXTRACT3D, exmask, exmaskhd, tmp, tmphd, xyrange
@@ -272,20 +278,18 @@ SXADDPAR, mhd, 'HISTORY', histlabel+'guard=['+strcompress(guard[0],/r)+$
 if n_elements(dvmin) gt 0 then $
     SXADDPAR, mhd, 'HISTORY', histlabel+'dvmin='+strcompress(dvmin,/r)
 
-; OUTPUT MASK CUBE AND MASKED CUBE
+; OUTPUT MASK CUBE AND CALCULATE MASKED FLUX
 SXADDPAR,mhd,'DATAMAX',2.0, before='HISTORY'
 SXADDPAR,mhd,'DATAMIN',-1.0, before='HISTORY'
 nan_tag=where(data ne data,nan_ct)
 if  nan_ct ne 0 then mask[nan_tag]=!values.f_nan
 if  thresh gt 0.0 then begin
     WRITEFITS,baseroot+'.mask.fits',float(mask),mhd
-    SXADDPAR,mhd,'DATAMAX', max(mask*data,/nan), before='HISTORY'
-    SXADDPAR,mhd,'DATAMIN', min(mask*data,/nan), before='HISTORY'
-    WRITEFITS,baseroot+'.mskd.fits',float(mask*data),mhd
-    fluxdata=total(total(mask*data,1,/nan),1,/nan)
-endif else begin
-    fluxdata=total(total(data,1,/nan),1,/nan)
-endelse
+    ;SXADDPAR,mhd,'DATAMAX', max(mask*data,/nan), before='HISTORY'
+    ;SXADDPAR,mhd,'DATAMIN', min(mask*data,/nan), before='HISTORY'
+    ;WRITEFITS,baseroot+'.mskd.fits',float(mask*data),mhd
+endif
+fluxdata=total(total(mask*data,1,/nan),1,/nan)
 
 ; OUTPUT FLUX VECTOR
 if strpos(strupcase(sxpar(mhd,'BUNIT')),'JY/B') ne -1 then begin
@@ -296,16 +300,21 @@ endif else begin
         'Flux('+strtrim(bunit,2)+'*PIX)']
 endelse
 
-; OUTPUT 2D ERROR MAP (SKIP IF ERROR MAP PROVIDED)
+; OUTPUT 2D ERROR MAP IF NO ERROR MAP PROVIDED
 if  n_elements(errfile) eq 0 then begin 
     SXADDPAR, mhd, 'DATAMAX', max(emap,/nan), before='HISTORY'
     SXADDPAR, mhd, 'DATAMIN', min(emap,/nan), before='HISTORY'
     WRITEFITS, baseroot+'.rms.fits', float(emap), mhd
+; OR OUTPUT RESCALED ERROR CUBE IF /DORMS or /RMSEST WAS SET
 endif else if keyword_set(dorms) or keyword_set(rmsest) then begin
     SXADDPAR, mhd, 'DATAMAX', max(ecube,/nan), before='HISTORY'
     SXADDPAR, mhd, 'DATAMIN', min(ecube,/nan), before='HISTORY'
     WRITEFITS, baseroot+'.ecube.fits', float(ecube), mhd
 endif
+
+; DROP 3RD AND 4TH AXIS KEYWORDS FOR REST OF OUTPUTS
+SXDELPAR, mhd, ['CTYPE3','CRVAL3','CRPIX3','CDELT3','CUNIT3']
+SXDELPAR, mhd, ['CTYPE4','CRVAL4','CRPIX4','CDELT4','CUNIT4']
 
 ; PEAK INTENSITY
 SXADDPAR, mhd, 'DATAMAX', max(peak,/nan), before='HISTORY'
@@ -320,10 +329,6 @@ WRITEFITS, baseroot+'.snrpk.fits', float(snrpk), mhd
 
 ; MOMENT 0 AND ERROR
 SXADDPAR, mhd, 'BUNIT', strtrim(bunit,2)+'.KM/S', before='HISTORY'
-SXDELPAR, mhd, 'CTYPE3'
-SXDELPAR, mhd, 'CRVAL3'
-SXDELPAR, mhd, 'CRPIX3'
-SXDELPAR, mhd, 'CDELT3'
 mom0gm = mom0 * abs(h.cdelt[2]) / 1.0e3
 SXADDPAR, mhd, 'DATAMAX', max(mom0gm,/nan), before='HISTORY'
 SXADDPAR, mhd, 'DATAMIN', min(mom0gm,/nan), before='HISTORY'
@@ -351,6 +356,14 @@ WRITEFITS, baseroot+'.mom2.fits', float(mom2), mhd
 SXADDPAR, mhd, 'DATAMAX', max(emom2,/nan), before='HISTORY'
 SXADDPAR, mhd, 'DATAMIN', min(emom2,/nan), before='HISTORY'
 WRITEFITS, baseroot+'.emom2.fits', float(emom2), mhd
+
+; 2D PROJECTION OF THE MASK
+if  thresh gt 0.0 then begin
+    SXADDPAR, mhd, 'BUNIT', ' ', before='HISTORY'
+    SXADDPAR,mhd,'DATAMAX',2.0, before='HISTORY'
+    SXADDPAR,mhd,'DATAMIN',-1.0, before='HISTORY'
+    WRITEFITS,baseroot+'.msk2d.fits',max(float(mask),/nan,dim=3),mhd
+endif
 
 ; MOM0 in XV and YV (OPTIONAL)
 if  keyword_set(pvmom0) then begin
