@@ -11,3 +11,4 @@ Contributions from Tony Wong, Rui Xue, Annie Hughes, and Erik Rosolowsky.
 
 * v1 - 27may2015 - initial release, still cleaning up documentation.
 * v2 - 04jun2015 - include plotting routines
+* v3 - 02feb2016 - new approach to estimating uncertainties in mom0, flux
