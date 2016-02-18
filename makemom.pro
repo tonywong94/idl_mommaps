@@ -79,6 +79,7 @@ PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
 ;   20150712  tw  output flux table from masked mom-0
 ;   20160131  tw  don't output masked cube; allow 2D input mask; output 2D mask
 ;   20160201  tw  output emom0max image
+;   20160215  tw  weight mean spectrum by variance
 ;
 ;-
 
@@ -285,12 +286,10 @@ SXADDPAR,mhd,'DATAMAX',2.0, before='HISTORY'
 SXADDPAR,mhd,'DATAMIN',-1.0, before='HISTORY'
 nan_tag=where(data ne data,nan_ct)
 if  nan_ct ne 0 then mask[nan_tag]=!values.f_nan
-if  thresh gt 0.0 then begin
-    WRITEFITS,baseroot+'.mask.fits',float(mask),mhd
-    ;SXADDPAR,mhd,'DATAMAX', max(mask*data,/nan), before='HISTORY'
-    ;SXADDPAR,mhd,'DATAMIN', min(mask*data,/nan), before='HISTORY'
-    ;WRITEFITS,baseroot+'.mskd.fits',float(mask*data),mhd
-endif
+WRITEFITS,baseroot+'.mask.fits',float(mask),mhd
+;SXADDPAR,mhd,'DATAMAX', max(mask*data,/nan), before='HISTORY'
+;SXADDPAR,mhd,'DATAMIN', min(mask*data,/nan), before='HISTORY'
+;WRITEFITS,baseroot+'.mskd.fits',float(mask*data),mhd
 
 ; OUTPUT MASKED FLUX SPECTRUM WITH FORMAL AND CONSERVATIVE ERRORS
 if strpos(strupcase(sxpar(mhd,'BUNIT')),'JY/B') ne -1 then begin
@@ -303,6 +302,29 @@ endif else begin
     intfluxunit = strtrim(bunit,2)+'KM/S*PIX'
 endelse
 
+; npixels  = total(total(mask,1,/nan),1,/nan)
+; weights  = total(total(mask/ecube^2.,1,/nan),1,/nan)
+; weights[where(weights eq 0.0,/null)] = 1.
+; wgtdata  = total(total(mask*data/ecube^2.,1,/nan),1,/nan)
+; spcdata  = (wgtdata/weights) * convfac * npixels
+; spcerr   = sqrt(1./weights)  * convfac * npixels
+; npixels2 = total(total(exmask,1,/nan),1,/nan)
+; weights2 = total(total(exmask/ecube^2.,1,/nan),1,/nan)
+; weights2[where(weights2 eq 0.0,/null)] = 1.
+; spcerr2  = sqrt(1./weights2) * convfac * npixels2
+
+; WEIGHTED MEAN SPECTRUM WITH FORMAL ERRORS
+weights  = total(total(mask/ecube^2.,1,/nan),1,/nan)
+weights[where(weights eq 0.0,/null)] = 1.
+wgtdata  = total(total(mask*data/ecube^2.,1,/nan),1,/nan)
+meandata  = (wgtdata/weights)
+meanerr   = sqrt(1./weights)
+; CONSERVATIVE ERROR EST.
+weights2 = total(total(exmask/ecube^2.,1,/nan),1,/nan)
+weights2[where(weights2 eq 0.0,/null)] = 1.
+meanerr2  = sqrt(1./weights2)
+
+; INTEGRATED SPECTRUM AND FLUX
 fluxdata = total(total(mask*data,1,/nan),1,/nan) * convfac
 fluxerr  = total(total((mask*ecube)^2.,1,/nan),1,/nan) * convfac
 fluxerr2 = total(total((exmask*ecube)^2.,1,/nan),1,/nan) * convfac
@@ -311,6 +333,11 @@ intfluxerr  = sqrt(total(fluxerr,/nan))*abs(h.cdelt[2])/1.0e3
 intfluxerr2 = sqrt(total(fluxerr2,/nan))*abs(h.cdelt[2])/1.0e3
 fluxerr  = sqrt(fluxerr)
 fluxerr2 = sqrt(fluxerr2)
+
+; OUTPUT WEIGHTED MEAN SPECTRUM
+write_csv,baseroot+'.mean.out',h.v,meandata,meanerr,meanerr2, $
+    header=['# '+h.ctype[2],'Brightness('+sxpar(mhd,'BUNIT')+')',$
+    'FormErr','ConsErr']
 
 ; OUTPUT FLUX VECTOR
 fluxinfo = string(intfluxdata,format='(F9.2)')+' '+intfluxunit+' +/- '+ $
@@ -382,7 +409,7 @@ SXADDPAR, mhd, 'DATAMIN', min(emom2,/nan), before='HISTORY'
 WRITEFITS, baseroot+'.emom2.fits', float(emom2), mhd
 
 ; 2D PROJECTION OF THE MASK
-if  thresh gt 0.0 then begin
+if  thresh gt 0.0 and total(mask,/nan) gt h.ppbeam then begin
     SXADDPAR, mhd, 'BUNIT', ' ', before='HISTORY'
     SXADDPAR,mhd,'DATAMAX',2.0, before='HISTORY'
     SXADDPAR,mhd,'DATAMIN',-1.0, before='HISTORY'
