@@ -87,17 +87,22 @@ endif
 ; GENERATE MASK BY SIGMA CLIPPING (MIN 2 CHANS)
 if  sig gt 0.0 then begin
     mask = im*0.0
-    mask[where(im_smo gt sen_smo*sig,/null)]=1.0
+    mask[where(im_smo gt sen_smo*sig,ct,/null)]=1.0
+;        print,'Before dilation:',size(mask),total(mask,/nan)
+;        print,'Pixel count is',ct
     mask = padding(mask,1)
     mask = (mask*(shift(mask,0,0,1)+shift(mask,0,0,-1)) gt 0)
     ; DILATE THE MASK IF REQUESTED
-    if grow gt 0.0 then begin
+    if (total(mask,/nan) gt 0.0) and (grow gt 0.0) then begin
+        ;print,'Excluding loners:',size(mask),total(mask,/nan)
         ; CONSTRAINT MASK
         growmask = im_smo gt grow*sen_smo
         growmask = padding(growmask,1)
         growmask = (growmask*(shift(growmask,0,0,1)+shift(growmask,0,0,-1)) gt 0)
+        ;print,'Growth mask:',size(growmask),total(growmask,/nan)
         ; EXPAND MASK
         mask = float(dilate_mask(mask, constraint = growmask))
+        ;print,'Expanded mask:',size(mask),total(mask,/nan)
     endif
     mask = padding(mask,-1)  
     ; ADD A GUARD BAND IF REQUESTED
