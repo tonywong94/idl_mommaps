@@ -99,7 +99,7 @@ if  not keyword_set(keep3d) then begin
         SXDELPAR,mom0xvhd,key+'3'
     endforeach
     mom0xv=total(mom0xv[*,*,[tag_invrange]],2) ; |V-RA
-    mom0xv[where(total(mask,2,/nan) eq 0.0, /null)]=!values.f_nan
+    mom0xv[where(total(mask[*,*,[tag_invrange]],2,/nan) eq 0.0, /null)]=!values.f_nan
     SXADDPAR,mom0xvhd,'CRPIX2',sxpar(mom0xvhd,'CRPIX2')-min(tag_invrange)
     SXADDPAR,mom0xvhd,'NAXIS2',n_elements(tag_invrange)
     
@@ -112,7 +112,7 @@ if  not keyword_set(keep3d) then begin
         SXDELPAR,mom0vyhd,key+'3'
     endforeach
     mom0vy=total(mom0vy[*,*,[tag_invrange]],1) ; |V-DEC
-    mom0vy[where(total(mask,1,/nan) eq 0.0, /null)]=!values.f_nan
+    mom0vy[where(total(mask[*,*,[tag_invrange]],1,/nan) eq 0.0, /null)]=!values.f_nan
     mom0vy=rotate(mom0vy,4)                    ; |DEC-V
     SXADDPAR,mom0vyhd,'CRPIX1',sxpar(mom0vyhd,'CRPIX1')-min(tag_invrange)
     SXADDPAR,mom0vyhd,'NAXIS1',n_elements(tag_invrange)    
