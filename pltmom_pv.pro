@@ -49,11 +49,29 @@ nvels=(size(imvy))[1]
 vels=sxpar(imvyhd,'CRVAL1')+(findgen(nvels)+1-sxpar(imvyhd,'CRPIX1'))*sxpar(imvyhd,'CDELT1')
 vels=vels/1000.
 
+szall=[sz[0]+sz_vy[0],sz[1]+sz_xv[1]]
+
+posx=[0,0,sz[0],sz[0],szall[0],szall[0]]
+posx[1:5]=posx[1:5]+szall[0]*0.15       ;   left-edge
+posx[3:5]=posx[3:5]+max(szall)*0.02     ;   panel gap
+posx[5]=posx[5]+szall[0]*0.02
+
+posy=[0,0,sz[1],sz[1],szall[1],szall[1]]
+posy[1:5]=posy[1:5]+szall[1]*0.10       ;   bottom-edge
+posy[3:5]=posy[3:5]+max(szall)*0.02     ;   panel gap
+posy[5]=posy[5]+szall[1]*0.02
+
+posx=posx*1.0
+posy=posy*1.0
+posxn=posx/max(posx)
+posyn=posy/max(posy)
+
+epsxy=[posx[-1],posy[-1]]/max([posx[-1],posy[-1]])*8.0
 set_plot, 'ps'
 device, filename=prefix+'.mom0pv.eps', $
     bits_per_pixel=8,/encapsulated,$
-    xsize=8,ysize=8.*(sz[1]+sz_xv[1])/(sz[0]+sz_vy[0]),/inches,/col,xoffset=0,yoffset=0
-
+    xsize=epsxy[0],ysize=epsxy[1],/inches,/col,xoffset=0,yoffset=0
+print,epsxy
 !p.thick = 1.5
 !x.thick = 1.5
 !y.thick = 1.5
@@ -63,8 +81,8 @@ device, filename=prefix+'.mom0pv.eps', $
 xyouts,'!6'
 
 ; MOM-0 (XY) PLOT 
-pos=[0.1,0.1,0.1+0.88/(scx+1.0),0.1+0.88/(scy+1.0)]
-
+pos=[posxn[1],posyn[1],posxn[2],posyn[2]]
+print,pos
 loadct,13
 cgimage,im,pos=pos,stretch=1,/noe
 imcontour,im,imhd,nlevels=10,$
@@ -97,7 +115,8 @@ tvellipse,s.bmaj/2.0/psize,s.bmin/2.0/psize,$
 
 if  keyword_set(label) then al_legend,label,/top,/right,textcolor='yellow',box=0
     
-subpos_xv=[pos[0],pos[3]+0.01,pos[2],pos[3]+0.9/(scx+1.0)*scx]
+subpos_xv=[posxn[1],posyn[3],posxn[2],posyn[4]]
+
 loadct,13
 cgimage,imxv,pos=subpos_xv,stretch=1,/noe
 loadct,0
@@ -111,7 +130,8 @@ imcontour,im,imhd,nlevels=10,$
     /noe,pos=subpos_xv,/nodata,color='red',AXISCOLOR='red',ystyle=5,xtickformat='(A1)',$
     subtitle=' ',xticklen=!p.ticklen*(0.6/0.25),xtitle=' ',ytitle=' '
     
-subpos_yv=[pos[2]+0.01,pos[1],pos[2]+0.9/(scy+1.0)*scy,pos[3]]
+subpos_yv=[posxn[3],posyn[1],posxn[4],posyn[2]]
+
 loadct,13
 cgimage,imvy,pos=subpos_yv,stretch=1,/noe;,minvalue=0.0
 loadct,0
