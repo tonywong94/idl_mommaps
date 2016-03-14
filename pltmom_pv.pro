@@ -23,6 +23,7 @@ PRO PLTMOM_PV,prefix,label=label
 
 im=prefix+'.mom0.fits'
 eim=prefix+'.emom0.fits'
+imsnr=prefix+'.snrpk.fits'
 imxv=prefix+'.mom0xv.fits'
 imvy=prefix+'.mom0vy.fits'
 
@@ -53,20 +54,20 @@ szall=[sz[0]+sz_vy[0],sz[1]+sz_xv[1]]
 
 posx=[0,0,sz[0],sz[0],szall[0],szall[0]]
 posx[1:5]=posx[1:5]+szall[0]*0.15       ;   left-edge
-posx[3:5]=posx[3:5]+max(szall)*0.02     ;   panel gap
-posx[5]=posx[5]+szall[0]*0.02
+posx[3:5]=posx[3:5]+max(szall)*0.01     ;   panel gap
+posx[5]=posx[5]+szall[0]*0.04
 
 posy=[0,0,sz[1],sz[1],szall[1],szall[1]]
 posy[1:5]=posy[1:5]+szall[1]*0.10       ;   bottom-edge
-posy[3:5]=posy[3:5]+max(szall)*0.02     ;   panel gap
-posy[5]=posy[5]+szall[1]*0.02
+posy[3:5]=posy[3:5]+max(szall)*0.01     ;   panel gap
+posy[5]=posy[5]+szall[1]*0.04
 
 posx=posx*1.0
 posy=posy*1.0
 posxn=posx/max(posx)
 posyn=posy/max(posy)
+epsxy=[posx[-1],posy[-1]]/max([posx[-1],posy[-1]])*11.0
 
-epsxy=[posx[-1],posy[-1]]/max([posx[-1],posy[-1]])*8.0
 set_plot, 'ps'
 device, filename=prefix+'.mom0pv.eps', $
     bits_per_pixel=8,/encapsulated,$
@@ -82,20 +83,18 @@ xyouts,'!6'
 
 ; MOM-0 (XY) PLOT 
 pos=[posxn[1],posyn[1],posxn[2],posyn[2]]
-print,pos
 loadct,13
 cgimage,im,pos=pos,stretch=1,/noe
 imcontour,im,imhd,nlevels=10,$
     /noe,pos=pos,/nodata,color='red',AXISCOLOR='red',subtitle=' '
 imcontour,im,imhd,nlevels=10,$
     /noe,pos=pos,/nodata,color='black',AXISCOLOR='black',subtitle=' ',ticklen=0
-if  (where(eim ne eim))[0] ne -1 then begin
-    sz=size(eim,/d)
-    bb=find_boundary(where(eim eq eim),xsize=sz[0],ysize=sz[1])
+if  file_test(imsnr) then begin
+    imsnr=readfits(imsnr)
+    sz=size(imsnr,/d)
+    bb=find_boundary(where(imsnr eq imsnr),xsize=sz[0],ysize=sz[1])
     oplot,bb[0,*],bb[1,*],color=cgcolor('yellow'),linestyle=2
 endif
-
-
 
 getrot,imhd,rotang,cdelt
 imsz=size(im,/d)
@@ -114,21 +113,24 @@ tvellipse,s.bmaj/2.0/psize,s.bmin/2.0/psize,$
     /data,noclip=0,color=cgcolor('cyan'),/fill
 
 if  keyword_set(label) then al_legend,label,/top,/right,textcolor='yellow',box=0
+
+vinterval=ceil(abs(min(vels)-max(vels))/4.0)*1.0
     
 subpos_xv=[posxn[1],posyn[3],posxn[2],posyn[4]]
 
 loadct,13
 cgimage,imxv,pos=subpos_xv,stretch=1,/noe
 loadct,0
+
 plot,[0,1],[min(vels),max(vels)],/nodata,/noe,pos=subpos_xv,$
-    xstyle=5,ystyle=1,$
+    xstyle=5,ystyle=1,yTICKINTERVAL=vinterval,$
     ytitle='Velocity [km/s]',color=cgcolor('red')
 plot,[0,1],[min(vels),max(vels)],/nodata,/noe,pos=subpos_xv,$
-    xstyle=5,ystyle=1,$
-    ytitle='Velocity [km/s]',ticklen=0.0   
+    xstyle=5,ystyle=1,yTICKINTERVAL=vinterval,$
+    ytitle='Velocity [km/s]',ticklen=0.0,ytick_get=vticks   
 imcontour,im,imhd,nlevels=10,$
     /noe,pos=subpos_xv,/nodata,color='red',AXISCOLOR='red',ystyle=5,xtickformat='(A1)',$
-    subtitle=' ',xticklen=!p.ticklen*(0.6/0.25),xtitle=' ',ytitle=' '
+    subtitle=' ',xticklen=!p.ticklen/scy,xtitle=' ',ytitle=' '
     
 subpos_yv=[posxn[3],posyn[1],posxn[4],posyn[2]]
 
@@ -136,15 +138,16 @@ loadct,13
 cgimage,imvy,pos=subpos_yv,stretch=1,/noe;,minvalue=0.0
 loadct,0
 plot,[min(vels),max(vels)],[0,1],/nodata,/noe,pos=subpos_yv,$
-    xstyle=1,ystyle=5,$
-    xtitle='Velocity [km/s]',color=cgcolor('red')
+    xstyle=1,ystyle=5,xticks=3,xtickinterval=vinterval,$
+    xtitle='',color=cgcolor('red'),xtickformat='(A1)'
 plot,[min(vels),max(vels)],[0,1],/nodata,/noe,pos=subpos_yv,$
-    xstyle=1,ystyle=5,$
-    xtitle='Velocity [km/s]',ticklen=0.0 
+    xstyle=1,ystyle=5,xticks=3,xtickinterval=vinterval,$
+    xtitle='',ticklen=0.0,xtickformat='(A1)'
 imcontour,im,imhd,nlevels=10,$
     /noe,pos=subpos_yv,/nodata,color='red',AXISCOLOR='red',xstyle=5,ytickformat='(A1)',$
-    subtitle=' ',yticklen=!p.ticklen*(0.6/0.25),xtitle=' ',ytitle=' '
+    subtitle=' ',yticklen=!p.ticklen/scx,xtitle=' ',ytitle=' '
 
+        
 device, /close
 set_plot,'X'
 
