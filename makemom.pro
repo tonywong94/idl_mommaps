@@ -80,6 +80,7 @@ PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
 ;   20160131  tw  don't output masked cube; allow 2D input mask; output 2D mask
 ;   20160201  tw  output emom0max image
 ;   20160215  tw  weight mean spectrum by variance
+;   20160506  tw  gzip compress the output mask cube; better support for fits.gz
 ;
 ;-
 
@@ -115,13 +116,15 @@ endif else begin
     gstr = ''
 endelse
 galname=file_basename(filename,'.fits')
+if (galname eq filename) then galname=file_basename(filename,'.fits.gz')
+if (galname eq filename) then message,'Input file extension not recognized',/info
 if  keyword_set(baseroot) eq 0 then begin
     baseroot = galname + '.' + smostr + tstr + estr + gstr
     if strpos(baseroot,'.',/reverse_search) eq strlen(baseroot)-1 then $
       baseroot=strmid(baseroot,0,strlen(baseroot)-1)
 endif
-if  keyword_set(errfile) then errname=file_basename(errfile,'.fits')
-if  keyword_set(maskfile) then mskname=file_basename(maskfile,'.fits')
+;if  keyword_set(errfile) then errname=file_basename(errfile,'.fits')
+;if  keyword_set(maskfile) then mskname=file_basename(maskfile,'.fits')
 
 ; READ IN DATA, CONVERT UNITS
 data = READFITS(filename, hd, /silent)
@@ -287,6 +290,8 @@ SXADDPAR,mhd,'DATAMIN',-1.0, before='HISTORY'
 nan_tag=where(data ne data,nan_ct)
 if  nan_ct ne 0 then mask[nan_tag]=!values.f_nan
 WRITEFITS,baseroot+'.mask.fits',float(mask),mhd
+spawn, 'gzip -f ' + baseroot+'.mask.fits'
+
 ;SXADDPAR,mhd,'DATAMAX', max(mask*data,/nan), before='HISTORY'
 ;SXADDPAR,mhd,'DATAMIN', min(mask*data,/nan), before='HISTORY'
 ;WRITEFITS,baseroot+'.mskd.fits',float(mask*data),mhd
