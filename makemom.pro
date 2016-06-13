@@ -19,8 +19,8 @@ PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
 ;                 result in the corresponding data pixels being dropped.
 ;                 default: unset => error is assumed constant with position
 ;   RMSEST    --  estimate of channel noise, in same units as cube.  If ERRFILE is
-;                 given, this is used to set the rms at the minimum (e.g. center).
-;                 default: unset => use error map if given, or assume rms=1, or 
+;                 given, the error cube is rescaled with this as minimum (e.g. center).
+;                 default: unset => use error map if given, or FITS keyword RMS, or 
 ;                 get rms from data cube if /DORMS is requested.
 ;   MASKFILE  --  external masking cube (value=1 for valid data, 0 otherwise).
 ;                 Must match the coordinate grid of the input data cube.  This is 
@@ -56,11 +56,12 @@ PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
 ;   REPLACE0  --  input cube values of 0.0 will be treated as missing data
 ;   MASK0     --  mask pixels where some channels are blanked (e.g. FOV varies w/channel)
 ;   KELVIN    --  force conversion from Jy/beam to Kelvin
-;   DORMS     --  estimate the channel noise from the data.  This is used to scale
-;                 ERRFILE if given.  Cannot be used if RMSEST is given.
+;   DORMS     --  make an estimate of the channel noise from the data.  This is used to
+;                 scale ERRFILE if given.  Cannot be used if RMSEST is given.
 ;   GAIN2ERR  --  use this flag if the input cube is primary gain corrected and you
 ;                 provide the gain cube as ERRFILE.  Noise cube is then proportional to
-;                 1/ERRFILE.  Must be used with /DORMS option unless RMSEST is given.
+;                 1/ERRFILE.  Must be used with /DORMS option unless RMSEST is given
+;                 or the 'RMS' keyword is provided in the FITS header.
 ;   USEALL    --  set this to use all channels for rms noise estimation (/DORMS).  By
 ;                 default only the first 2 and last 2 channels are used.
 ;   PVMOM0    --  produce additional mom0 images by collapsing cube along x & y axes 
@@ -81,6 +82,8 @@ PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
 ;   20160201  tw  output emom0max image
 ;   20160215  tw  weight mean spectrum by variance
 ;   20160506  tw  gzip compress the output mask cube; better support for fits.gz
+;   20160609  tw  additional code to avoid DATAMIN = NaN.  Use FITS keyword RMS
+;                 for GAIN2ERR if available.  Convert to K after errcube finalized.
 ;
 ;-
 
@@ -126,13 +129,9 @@ endif
 ;if  keyword_set(errfile) then errname=file_basename(errfile,'.fits')
 ;if  keyword_set(maskfile) then mskname=file_basename(maskfile,'.fits')
 
-; READ IN DATA, CONVERT UNITS
+; READ IN DATA
 data = READFITS(filename, hd, /silent)
 RADIOHEAD, hd, s = h
-if  keyword_set(kelvin) and strpos(strupcase(sxpar(hd,'BUNIT')),'JY/B') ne -1 then begin
-    data = data * h.jypb2k
-    SXADDPAR, hd, 'BUNIT', 'K'
-endif
 
 ; EXTRACT SUBREGION IF REQUESTED
 if  n_elements(xyrange) eq 4 then begin
@@ -194,23 +193,20 @@ if  n_elements(errfile) eq 0 then begin
     if  keyword_set(dorms) then begin
         ecube=ERR_CUBE(data,useall=useall)
     endif else begin
-        if keyword_set(rmsest) then rms=rmsest else rms=1.
+        if keyword_set(rmsest) then rms=rmsest else begin
+            rms = SXPAR( hd, 'RMS', count=ct )
+            print,'Using error from FITS header: ', rms
+            if (ct eq 0) then rms = 1.
+        endelse
         ecube=data*0.0 + rms
     endelse
-    emap = total(ecube, 3, /nan) / (total(ecube eq ecube, 3)>1)
-    emap[where(emap eq 0.0,/null)]=!values.f_nan
 ; OR ELSE USE PROVIDED ERROR CUBE
 endif else begin
     ecube = readfits(errfile, ehd, /silent)
-    if  keyword_set(kelvin) and strpos(strupcase(sxpar(ehd,'BUNIT')),'JY/B') ne -1 then begin
-        ecube=temporary(ecube) * h.jypb2k
-        SXADDPAR, ehd, 'BUNIT', 'K'
-    endif
     if  n_elements(xyrange) eq 4 then begin
         HEXTRACT3D,ecube,ehd,tmp,tmphd,xyrange
         SXADDPAR, tmphd, 'DATAMAX', max(tmp,/nan), before='HISTORY'
         SXADDPAR, tmphd, 'DATAMIN', min(tmp,/nan), before='HISTORY'
-        ;WRITEFITS, errname+'.subreg.fits', float(tmp), tmphd
         ecube=tmp
         ehd=tmphd
     endif
@@ -219,7 +215,6 @@ endif else begin
         ecube0=ecube
         ecube=make_array(esz[1],esz[2],sz[3],/float,/nozero)
         for i=0,sz[3]-1 do ecube[0,0,i]=ecube0
-        ;ecube[where(data ne data,/null)]=!values.f_nan
     endif
     ecube[where(ecube eq 0,/null)]=!values.f_nan
     if  keyword_set(dorms) then begin
@@ -227,15 +222,33 @@ endif else begin
         tmp=ERR_CUBE(data,pattern=ecube,useall=useall)
         ecube=tmp
     endif else begin
-        if keyword_set(rmsest) then begin
-            if keyword_set(gain2err) then ecube = 1./ecube
-            ecube=rmsest*ecube/min(ecube,/nan)
-        endif
+        if keyword_set(gain2err) then begin
+            ecube = 1./ecube
+            if keyword_set(rmsest) then begin
+                ecube=rmsest*ecube/min(ecube,/nan)
+            endif else begin
+                rms = SXPAR( hd, 'RMS', count=ct )
+                print,'Scaling by error from FITS header: ', rms
+                if (ct gt 0) then ecube=rms*ecube/min(ecube,/nan)
+            endelse
+        endif else begin
+            if keyword_set(rmsest) then begin
+                ecube=rmsest*ecube/min(ecube,/nan)
+            endif
+        endelse
     endelse
-    emap = total(ecube, 3, /nan) / (total(ecube eq ecube, 3)>1)
-    emap[where(emap eq 0.0,/null)]   =!values.f_nan
-    data[where(ecube ne ecube,/null)]=!values.f_nan
+    data[where(ecube ne ecube,/null)]=!values.f_nan  ; ignore data with no errors
 endelse
+
+; CONVERT JY/BEAM TO KELVIN, GENERATE 2D ERROR MAP
+if  keyword_set(kelvin) and strpos(strupcase(sxpar(hd,'BUNIT')),'JY/B') ne -1 then begin
+    data = temporary(data) * h.jypb2k
+    SXADDPAR, hd, 'BUNIT', 'K'
+    ecube=temporary(ecube) * h.jypb2k
+    SXADDPAR, ehd, 'BUNIT', 'K'
+endif
+emap = total(ecube, 3, /nan) / (total(ecube eq ecube, 3)>1)
+emap[where(emap eq 0.0,/null)] = !values.f_nan
 
 ; GENERATE MASKING CUBE (missing data locations are still kept in mask)
 mask = GENMASK(data,err=ecube,hd=hd,spar=smopar,sig=thresh,grow=edge,guard=guard)
@@ -345,7 +358,7 @@ write_csv,baseroot+'.mean.out',h.v,meandata,meanerr,meanerr2, $
     'FormErr','ConsErr']
 
 ; OUTPUT FLUX VECTOR
-fluxinfo = string(intfluxdata,format='(F9.2)')+' '+intfluxunit+' +/- '+ $
+fluxinfo = string(intfluxdata)+' '+intfluxunit+' +/- '+ $
     string(intfluxerr,format='(F6.2)')+' (formal) +/- '+ $
     string(intfluxerr2,format='(F6.2)')+' (cons)'
 print,'moment 0 flux: ',fluxinfo
@@ -369,12 +382,17 @@ endif
 SXDELPAR, mhd, ['CTYPE3','CRVAL3','CRPIX3','CDELT3','CUNIT3']
 SXDELPAR, mhd, ['CTYPE4','CRVAL4','CRPIX4','CDELT4','CUNIT4']
 
-; PEAK INTENSITY
-SXADDPAR, mhd, 'DATAMAX', max(peak,/nan), before='HISTORY'
-SXADDPAR, mhd, 'DATAMIN', min(peak,/nan), before='HISTORY'
+; PEAK INTENSITY (BUNIT IS SAME)
+if total(finite(peak)) ge 1 then begin
+    SXADDPAR, mhd, 'DATAMAX', max(peak,/nan), before='HISTORY'
+    SXADDPAR, mhd, 'DATAMIN', min(peak,/nan), before='HISTORY'
+endif else begin
+    SXADDPAR, mhd, 'DATAMAX', 0.0, before='HISTORY'
+    SXADDPAR, mhd, 'DATAMIN', 0.0, before='HISTORY'
+endelse
 WRITEFITS, baseroot+'.peak.fits', float(peak), mhd
 
-; PEAK SNR
+; PEAK SNR (UNMASKED)
 SXADDPAR, mhd, 'BUNIT', 'SNR', before='HISTORY'
 SXADDPAR, mhd, 'DATAMAX', max(snrpk,/nan), before='HISTORY'
 SXADDPAR, mhd, 'DATAMIN', min(snrpk,/nan), before='HISTORY'
@@ -383,13 +401,22 @@ WRITEFITS, baseroot+'.snrpk.fits', float(snrpk), mhd
 ; MOMENT 0 AND ERROR
 SXADDPAR, mhd, 'BUNIT', strtrim(bunit,2)+'.KM/S', before='HISTORY'
 mom0gm = mom0 * abs(h.cdelt[2]) / 1.0e3
-SXADDPAR, mhd, 'DATAMAX', max(mom0gm,/nan), before='HISTORY'
-SXADDPAR, mhd, 'DATAMIN', min(mom0gm,/nan), before='HISTORY'
+if total(finite(mom0gm)) ge 1 then begin
+    SXADDPAR, mhd, 'DATAMAX', max(mom0gm,/nan), before='HISTORY'
+    SXADDPAR, mhd, 'DATAMIN', min(mom0gm,/nan), before='HISTORY'
+endif else begin
+    SXADDPAR, mhd, 'DATAMAX', 0.0, before='HISTORY'
+    SXADDPAR, mhd, 'DATAMIN', 0.0, before='HISTORY'
+endelse
 WRITEFITS, baseroot+'.mom0.fits', float(mom0gm), mhd
 emom0gm = emom0 * abs(h.cdelt[2]) / 1.0e3
-SXADDPAR, mhd, 'DATAMAX', max(emom0gm,/nan), before='HISTORY'
-SXADDPAR, mhd, 'DATAMIN', min(emom0gm,/nan), before='HISTORY'
+if total(finite(emom0gm)) ge 1 then begin
+    SXADDPAR, mhd, 'DATAMAX', max(emom0gm,/nan), before='HISTORY'
+    SXADDPAR, mhd, 'DATAMIN', min(emom0gm,/nan), before='HISTORY'
+endif
 WRITEFITS, baseroot+'.emom0.fits', float(emom0gm), mhd
+
+; CONSERVATIVE MOM0 ERROR
 emommx = emommx * abs(h.cdelt[2]) / 1.0e3
 SXADDPAR, mhd, 'DATAMAX', max(emommx,/nan), before='HISTORY'
 SXADDPAR, mhd, 'DATAMIN', min(emommx,/nan), before='HISTORY'
@@ -397,27 +424,38 @@ WRITEFITS, baseroot+'.emom0max.fits', float(emommx), mhd
 
 ; MOMENT 1 AND ERROR
 SXADDPAR, mhd, 'BUNIT', 'KM/S', before='HISTORY'
-SXADDPAR, mhd, 'DATAMAX', max(mom1,/nan), before='HISTORY'
-SXADDPAR, mhd, 'DATAMIN', min(mom1,/nan), before='HISTORY'
+if total(finite(mom1)) ge 1 then begin
+    SXADDPAR, mhd, 'DATAMAX', max(mom1,/nan), before='HISTORY'
+    SXADDPAR, mhd, 'DATAMIN', min(mom1,/nan), before='HISTORY'
+endif else begin
+    SXADDPAR, mhd, 'DATAMAX', 0.0, before='HISTORY'
+    SXADDPAR, mhd, 'DATAMIN', 0.0, before='HISTORY'
+endelse
 WRITEFITS, baseroot+'.mom1.fits', float(mom1), mhd
-SXADDPAR, mhd, 'DATAMAX', max(emom1,/nan), before='HISTORY'
-SXADDPAR, mhd, 'DATAMIN', min(emom1,/nan), before='HISTORY'
+if total(finite(emom1)) ge 1 then begin
+    SXADDPAR, mhd, 'DATAMAX', max(emom1,/nan), before='HISTORY'
+    SXADDPAR, mhd, 'DATAMIN', min(emom1,/nan), before='HISTORY'
+endif
 WRITEFITS, baseroot+'.emom1.fits', float(emom1), mhd
 PLTMOM, baseroot
 
 ; MOMENT 2 AND ERROR
-SXADDPAR, mhd, 'DATAMAX', max(mom2,/nan), before='HISTORY'
-SXADDPAR, mhd, 'DATAMIN', min(mom2,/nan), before='HISTORY'
+if total(finite(mom2)) ge 1 then begin
+    SXADDPAR, mhd, 'DATAMAX', max(mom2,/nan), before='HISTORY'
+    SXADDPAR, mhd, 'DATAMIN', min(mom2,/nan), before='HISTORY'
+endif
 WRITEFITS, baseroot+'.mom2.fits', float(mom2), mhd
-SXADDPAR, mhd, 'DATAMAX', max(emom2,/nan), before='HISTORY'
-SXADDPAR, mhd, 'DATAMIN', min(emom2,/nan), before='HISTORY'
+if total(finite(emom2)) ge 1 then begin
+    SXADDPAR, mhd, 'DATAMAX', max(emom2,/nan), before='HISTORY'
+    SXADDPAR, mhd, 'DATAMIN', min(emom2,/nan), before='HISTORY'
+endif
 WRITEFITS, baseroot+'.emom2.fits', float(emom2), mhd
 
 ; 2D PROJECTION OF THE MASK
 if  thresh gt 0.0 and total(mask,/nan) gt h.ppbeam then begin
     SXADDPAR, mhd, 'BUNIT', ' ', before='HISTORY'
-    SXADDPAR,mhd,'DATAMAX',2.0, before='HISTORY'
-    SXADDPAR,mhd,'DATAMIN',-1.0, before='HISTORY'
+    SXADDPAR, mhd, 'DATAMAX', 2.0, before='HISTORY'
+    SXADDPAR, mhd, 'DATAMIN',-1.0, before='HISTORY'
     WRITEFITS,baseroot+'.msk2d.fits',max(float(mask),/nan,dim=3),mhd
 endif
 

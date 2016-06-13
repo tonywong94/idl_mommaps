@@ -35,10 +35,10 @@ if  ~file_test(im) and $
     return
 endif
 
-im=readfits(im,imhd)
-eim=READFITS(eim,eimhd)
-imxv=readfits(imxv,imxvhd)
-imvy=readfits(imvy,imvyhd)
+im=READFITS(im,imhd,/SILENT)
+eim=READFITS(eim,eimhd,/SILENT)
+imxv=READFITS(imxv,imxvhd,/SILENT)
+imvy=READFITS(imvy,imvyhd,/SILENT)
 
 sz_xv=size(imxv,/d)
 sz_vy=size(imvy,/d)
@@ -72,7 +72,7 @@ set_plot, 'ps'
 device, filename=prefix+'.mom0pv.eps', $
     bits_per_pixel=8,/encapsulated,$
     xsize=epsxy[0],ysize=epsxy[1],/inches,/col,xoffset=0,yoffset=0
-print,epsxy
+;print,epsxy
 !p.thick = 1.5
 !x.thick = 1.5
 !y.thick = 1.5
@@ -83,7 +83,7 @@ xyouts,'!6'
 
 ; MOM-0 (XY) PLOT 
 pos=[posxn[1],posyn[1],posxn[2],posyn[2]]
-loadct,13
+loadct,13,/silent
 cgimage,im,pos=pos,stretch=1,/noe
 imcontour,im,imhd,nlevels=10,$
     /noe,pos=pos,/nodata,color='red',AXISCOLOR='red',subtitle=' '
@@ -118,9 +118,9 @@ vinterval=ceil(abs(min(vels)-max(vels))/4.0)*1.0
     
 subpos_xv=[posxn[1],posyn[3],posxn[2],posyn[4]]
 
-loadct,13
+loadct,13,/silent
 cgimage,imxv,pos=subpos_xv,stretch=1,/noe
-loadct,0
+loadct,0,/silent
 
 plot,[0,1],[min(vels),max(vels)],/nodata,/noe,pos=subpos_xv,$
     xstyle=5,ystyle=1,yTICKINTERVAL=vinterval,$
@@ -134,9 +134,9 @@ imcontour,im,imhd,nlevels=10,$
     
 subpos_yv=[posxn[3],posyn[1],posxn[4],posyn[2]]
 
-loadct,13
+loadct,13,/silent
 cgimage,imvy,pos=subpos_yv,stretch=1,/noe;,minvalue=0.0
-loadct,0
+loadct,0,/silent
 plot,[min(vels),max(vels)],[0,1],/nodata,/noe,pos=subpos_yv,$
     xstyle=1,ystyle=5,xticks=3,xtickinterval=vinterval,$
     xtitle='',color=cgcolor('red'),xtickformat='(A1)'
