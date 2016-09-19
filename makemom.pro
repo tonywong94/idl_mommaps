@@ -84,6 +84,7 @@ PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
 ;   20160506  tw  gzip compress the output mask cube; better support for fits.gz
 ;   20160609  tw  additional code to avoid DATAMIN = NaN.  Use FITS keyword RMS
 ;                 for GAIN2ERR if available.  Convert to K after errcube finalized.
+;   20160917  tw  gzip compress the output error cube
 ;
 ;-
 
@@ -126,8 +127,6 @@ if  keyword_set(baseroot) eq 0 then begin
     if strpos(baseroot,'.',/reverse_search) eq strlen(baseroot)-1 then $
       baseroot=strmid(baseroot,0,strlen(baseroot)-1)
 endif
-;if  keyword_set(errfile) then errname=file_basename(errfile,'.fits')
-;if  keyword_set(maskfile) then mskname=file_basename(maskfile,'.fits')
 
 ; READ IN DATA
 data = READFITS(filename, hd, /silent)
@@ -288,6 +287,8 @@ SXADDPAR, mhd, 'HISTORY', histlabel+systime()
 SXADDPAR, mhd, 'HISTORY', histlabel+'filename='+filename
 if n_elements(errfile) gt 0 then $
     SXADDPAR, mhd, 'HISTORY', histlabel+'errfile='+errfile
+if n_elements(maskfile) gt 0 then $ 
+    SXADDPAR, mhd, 'HISTORY', histlabel+'maskfile='+maskfile
 SXADDPAR, mhd, 'HISTORY', histlabel+'smopar=['+strcompress(smopar[0],/r)+','+$
     strcompress(smopar[1],/r)+']'
 SXADDPAR, mhd, 'HISTORY', histlabel+'thresh='+strcompress(thresh,/r)
@@ -296,6 +297,9 @@ SXADDPAR, mhd, 'HISTORY', histlabel+'guard=['+strcompress(guard[0],/r)+$
     ','+strcompress(guard[1],/r)+','+strcompress(guard[2],/r)+']'
 if n_elements(dvref) gt 0 then $
     SXADDPAR, mhd, 'HISTORY', histlabel+'dvref='+strcompress(dvref,/r)
+if n_elements(vrange) gt 0 then $
+    SXADDPAR, mhd, 'HISTORY', histlabel+'vrange=['+strcompress(vrange[0],/r)+$
+        ','+strcompress(vrange[1],/r)+']'
 
 ; OUTPUT MASK CUBE
 SXADDPAR,mhd,'DATAMAX',2.0, before='HISTORY'
@@ -376,6 +380,7 @@ endif else if keyword_set(dorms) or keyword_set(rmsest) then begin
     SXADDPAR, mhd, 'DATAMAX', max(ecube,/nan), before='HISTORY'
     SXADDPAR, mhd, 'DATAMIN', min(ecube,/nan), before='HISTORY'
     WRITEFITS, baseroot+'.ecube.fits', float(ecube), mhd
+    spawn, 'gzip -f ' + baseroot+'.ecube.fits'
 endif
 
 ; DROP 3RD AND 4TH AXIS KEYWORDS FOR REST OF OUTPUTS
