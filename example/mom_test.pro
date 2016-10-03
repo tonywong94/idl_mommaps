@@ -36,7 +36,7 @@ hrot3d,data,hd,newdata,newhd,angle,(sz[0]-1)/2.0,(sz[1]-1)/2.0,$
 hrot3d,mask,hd,newmask,newmaskhd,angle,(sz[0]-1)/2.0,(sz[1]-1)/2.0,$
     1,missing=!values.f_nan,/pivot    
 
-MASKMOMENT_PV,newdata,newhd,mask,mom0xv,mom0vy,mom0xvhd=mom0xvhd,mom0vyhd=mom0vyhd,$
+MASKMOMENT_PV,newdata,newhd,newmask,mom0xv,mom0vy,mom0xvhd=mom0xvhd,mom0vyhd=mom0vyhd,$
     vrange=vrange
 
 WRITEFITS, baseroot+'_rot.cube.fits',newdata,newhd
