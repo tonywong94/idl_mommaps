@@ -65,8 +65,9 @@ pro radiohead, hd, structure = structure, ms = ms
   if freq ne 0. then begin
     lam_mm = 1.e3*!CONST.C/freq
     ; Conversion Factors for the map to change from Jy/beam to K.
+    ; 3600*3600*(180/np.pi)**2*4*np.log(2)/(2*np.pi*scipy.constants.k*1e32)
     if bm_maj ne 0 then begin
-      jypb2k = 13.58491*(lam_mm/(sqrt(bm_maj*bm_min)))^2
+      jypb2k = 13.5979274*(lam_mm/(sqrt(bm_maj*bm_min)))^2
       k2jypb = 1./jypb2k
     endif
   endif
