@@ -127,6 +127,7 @@ if  keyword_set(baseroot) eq 0 then begin
     if strpos(baseroot,'.',/reverse_search) eq strlen(baseroot)-1 then $
       baseroot=strmid(baseroot,0,strlen(baseroot)-1)
 endif
+file_mkdir,file_dirname(baseroot,/m)
 
 ; READ IN DATA
 data = READFITS(filename, hd, /silent)
@@ -363,8 +364,8 @@ write_csv,baseroot+'.mean.out',h.v,meandata,meanerr,meanerr2, $
 
 ; OUTPUT FLUX VECTOR
 fluxinfo = string(intfluxdata)+' '+intfluxunit+' +/- '+ $
-    string(intfluxerr,format='(F6.2)')+' (formal) +/- '+ $
-    string(intfluxerr2,format='(F6.2)')+' (cons)'
+    string(intfluxerr,format='(F0.2)')+' (formal) +/- '+ $
+    string(intfluxerr2,format='(F0.2)')+' (cons)'
 print,'moment 0 flux: ',fluxinfo
 write_csv,baseroot+'.flux.out',h.v,fluxdata,fluxerr,fluxerr2, $
     header=['# '+h.ctype[2],'Flux('+fluxunit+')','FormErr','ConsErr'], $
