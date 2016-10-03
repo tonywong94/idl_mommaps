@@ -22,8 +22,7 @@ PRO PLTMOM_PV,prefix,label=label
 ;   CHECK IMAGE FILES
 
 im=prefix+'.mom0.fits'
-eim=prefix+'.emom0.fits'
-imsnr=prefix+'.snrpk.fits'
+eim=prefix+'.emom0max.fits'
 imxv=prefix+'.mom0xv.fits'
 imvy=prefix+'.mom0vy.fits'
 
@@ -66,7 +65,7 @@ posx=posx*1.0
 posy=posy*1.0
 posxn=posx/max(posx)
 posyn=posy/max(posy)
-epsxy=[posx[-1],posy[-1]]/max([posx[-1],posy[-1]])*11.0
+epsxy=[posx[-1],posy[-1]]/max([posx[-1],posy[-1]])*8.0
 
 set_plot, 'ps'
 device, filename=prefix+'.mom0pv.eps', $
@@ -85,16 +84,31 @@ xyouts,'!6'
 pos=[posxn[1],posyn[1],posxn[2],posyn[2]]
 loadct,13,/silent
 cgimage,im,pos=pos,stretch=1,/noe
-imcontour,im,imhd,nlevels=10,$
-    /noe,pos=pos,/nodata,color='red',AXISCOLOR='red',subtitle=' '
-imcontour,im,imhd,nlevels=10,$
-    /noe,pos=pos,/nodata,color='black',AXISCOLOR='black',subtitle=' ',ticklen=0
-if  file_test(imsnr) then begin
-    imsnr=readfits(imsnr)
-    sz=size(imsnr,/d)
-    bb=find_boundary(where(imsnr eq imsnr),xsize=sz[0],ysize=sz[1])
-    oplot,bb[0,*],bb[1,*],color=cgcolor('yellow'),linestyle=2
+
+xtitle=''
+ytitle=''
+xmid=!null
+ymid=!null
+if  keyword_set(label) then begin
+    if  tag_exist(label,'xtitle') then xtitle=label.xtitle
+    if  tag_exist(label,'ytitle') then ytitle=label.ytitle
+    if  tag_exist(label,'xmid') then xmid=label.xmid
+    if  tag_exist(label,'ymid') then ymid=label.ymid
 endif
+
+imcontour,im,imhd,nlevels=10,$
+    xmid=xmid,ymid=ymid,$
+    /noe,pos=pos,/nodata,color='red',AXISCOLOR='red',subtitle=' ',xtitle=' ',ytitle=' '
+imcontour,im,imhd,nlevels=10,$
+    xmid=xmid,ymid=ymid,$
+    /noe,pos=pos,/nodata,color='black',AXISCOLOR='black',subtitle=' ',ticklen=0,$
+    xtitle=xtitle,ytitle=ytitle
+
+if  (where(eim ne eim))[0] ne -1 then begin   
+    bb=find_boundary(where(eim eq eim),xsize=sz[0],ysize=sz[1])
+    oplot,bb[0,*],bb[1,*],color=cgcolor('white'),linestyle=2
+endif
+
 
 getrot,imhd,rotang,cdelt
 imsz=size(im,/d)
@@ -112,7 +126,12 @@ tvellipse,s.bmaj/2.0/psize,s.bmin/2.0/psize,$
     s.bpa-90.0+rotang,$
     /data,noclip=0,color=cgcolor('cyan'),/fill
 
-if  keyword_set(label) then al_legend,label,/top,/right,textcolor='yellow',box=0
+if  keyword_set(label) then begin
+    if  tag_exist(label,'tl') then al_legend,label.tl,/top,/left,textcolor='yellow',box=0
+    if  tag_exist(label,'tr') then al_legend,label.tr,/top,/right,textcolor='yellow',box=0
+    if  tag_exist(label,'bl') then al_legend,label.bl,/bottom,/left,textcolor='yellow',box=0
+    if  tag_exist(label,'br') then al_legend,label.br,/bottom,/right,textcolor='yellow',box=0
+endif
 
 vinterval=ceil(abs(min(vels)-max(vels))/4.0)*1.0
     
@@ -130,7 +149,8 @@ plot,[0,1],[min(vels),max(vels)],/nodata,/noe,pos=subpos_xv,$
     ytitle='Velocity [km/s]',ticklen=0.0,ytick_get=vticks   
 imcontour,im,imhd,nlevels=10,$
     /noe,pos=subpos_xv,/nodata,color='red',AXISCOLOR='red',ystyle=5,xtickformat='(A1)',$
-    subtitle=' ',xticklen=!p.ticklen/scy,xtitle=' ',ytitle=' '
+    subtitle=' ',xticklen=!p.ticklen/scy,xtitle=' ',ytitle=' ',$
+    xmid=xmid
     
 subpos_yv=[posxn[3],posyn[1],posxn[4],posyn[2]]
 
@@ -145,7 +165,8 @@ plot,[min(vels),max(vels)],[0,1],/nodata,/noe,pos=subpos_yv,$
     xtitle='',ticklen=0.0,xtickformat='(A1)'
 imcontour,im,imhd,nlevels=10,$
     /noe,pos=subpos_yv,/nodata,color='red',AXISCOLOR='red',xstyle=5,ytickformat='(A1)',$
-    subtitle=' ',yticklen=!p.ticklen/scx,xtitle=' ',ytitle=' '
+    subtitle=' ',yticklen=!p.ticklen/scx,xtitle=' ',ytitle=' ',$
+    ymid=ymid
 
         
 device, /close
