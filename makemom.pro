@@ -85,6 +85,7 @@ PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
 ;   20160609  tw  additional code to avoid DATAMIN = NaN.  Use FITS keyword RMS
 ;                 for GAIN2ERR if available.  Convert to K after errcube finalized.
 ;   20160917  tw  gzip compress the output error cube
+;   20161021  tw  rename convfac as osamp (it's an oversampling factor)
 ;
 ;-
 
@@ -316,11 +317,11 @@ spawn, 'gzip -f ' + baseroot+'.mask.fits'
 
 ; OUTPUT MASKED FLUX SPECTRUM WITH FORMAL AND CONSERVATIVE ERRORS
 if strpos(strupcase(sxpar(mhd,'BUNIT')),'JY/B') ne -1 then begin
-    convfac = 1./h.ppbeam
+    osamp = h.ppbeam
     fluxunit = 'JY'
     intfluxunit = 'JY KM/S'
 endif else begin
-    convfac = 1.
+    osamp = 1.
     fluxunit = strtrim(bunit,2)+'*PIX'
     intfluxunit = strtrim(bunit,2)+'KM/S*PIX'
 endelse
@@ -337,37 +338,37 @@ endelse
 ; spcerr2  = sqrt(1./weights2) * convfac * npixels2
 
 ; WEIGHTED MEAN SPECTRUM WITH FORMAL ERRORS
-weights  = total(total(mask/ecube^2.,1,/nan),1,/nan)
-weights[where(weights eq 0.0,/null)] = 1.
-wgtdata  = total(total(mask*data/ecube^2.,1,/nan),1,/nan)
-meandata  = (wgtdata/weights)
-meanerr   = sqrt(1./weights)
+wgtdata   = total(total(mask*data/ecube^2.,1,/nan),1,/nan)
+weights1  = total(total(mask/ecube^2.,1,/nan),1,/nan)
+weights1[where(weights1 eq 0.0,/null)] = 1.
+meandata  = (wgtdata/weights1)
+meanerr1  = sqrt(1./weights1)
 ; CONSERVATIVE ERROR EST.
 weights2 = total(total(exmask/ecube^2.,1,/nan),1,/nan)
 weights2[where(weights2 eq 0.0,/null)] = 1.
 meanerr2  = sqrt(1./weights2)
 
 ; INTEGRATED SPECTRUM AND FLUX
-fluxdata = total(total(mask*data,1,/nan),1,/nan) * convfac
-fluxerr  = total(total((mask*ecube)^2.,1,/nan),1,/nan) * convfac
-fluxerr2 = total(total((exmask*ecube)^2.,1,/nan),1,/nan) * convfac
-intfluxdata = total(fluxdata,/nan)*abs(h.cdelt[2])/1.0e3
-intfluxerr  = sqrt(total(fluxerr,/nan))*abs(h.cdelt[2])/1.0e3
+fluxdata = total(total(      mask*data  ,1,/nan),1,/nan) / osamp
+fluxerr1 = total(total((  mask*ecube)^2.,1,/nan),1,/nan) / osamp
+fluxerr2 = total(total((exmask*ecube)^2.,1,/nan),1,/nan) / osamp
+intfluxdata =      total(fluxdata,/nan) *abs(h.cdelt[2])/1.0e3
+intfluxerr1 = sqrt(total(fluxerr1,/nan))*abs(h.cdelt[2])/1.0e3
 intfluxerr2 = sqrt(total(fluxerr2,/nan))*abs(h.cdelt[2])/1.0e3
-fluxerr  = sqrt(fluxerr)
-fluxerr2 = sqrt(fluxerr2)
+fluxerr1    = sqrt(fluxerr1)
+fluxerr2    = sqrt(fluxerr2)
 
 ; OUTPUT WEIGHTED MEAN SPECTRUM
-write_csv,baseroot+'.mean.out',h.v,meandata,meanerr,meanerr2, $
+write_csv,baseroot+'.mean.out',h.v,meandata,meanerr1,meanerr2, $
     header=['# '+h.ctype[2],'Brightness('+sxpar(mhd,'BUNIT')+')',$
     'FormErr','ConsErr']
 
 ; OUTPUT FLUX VECTOR
 fluxinfo = string(intfluxdata)+' '+intfluxunit+' +/- '+ $
-    string(intfluxerr,format='(F0.2)')+' (formal) +/- '+ $
+    string(intfluxerr1,format='(F0.2)')+' (formal) +/- '+ $
     string(intfluxerr2,format='(F0.2)')+' (cons)'
 print,'moment 0 flux: ',fluxinfo
-write_csv,baseroot+'.flux.out',h.v,fluxdata,fluxerr,fluxerr2, $
+write_csv,baseroot+'.flux.out',h.v,fluxdata,fluxerr1,fluxerr2, $
     header=['# '+h.ctype[2],'Flux('+fluxunit+')','FormErr','ConsErr'], $
     table_header='# '+fluxinfo
 
