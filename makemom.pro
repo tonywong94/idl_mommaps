@@ -1,8 +1,8 @@
 PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
       vrange=vrange, xyrange=xyrange, dvref=dvref, baseroot=baseroot, $
-      thresh=thresh, edge=edge, guard=guard, smopar=smopar, senmsk=senmsk, $
-      replace0=replace0, mask0=mask0, kelvin=kelvin, dorms=dorms, pvmom0=pvmom0, $
-      gain2err=gain2err, useall=useall
+      thresh=thresh, chmin=chmin, edge=edge, guard=guard, smopar=smopar, $
+      senmsk=senmsk, replace0=replace0, mask0=mask0, kelvin=kelvin, dorms=dorms, $
+      pvmom0=pvmom0, gain2err=gain2err, useall=useall
       
 ;+
 ; NAME:
@@ -36,6 +36,8 @@ PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
 ;                 default: based on FILENAME root
 ;   THRESH    --  starting intensity threshold for signal mask, in units of sigma
 ;                 default: unset => no masking applied
+;   CHMIN     --  the THRESH mask must everywhere span at least CHMIN channels.
+;                 default: 2
 ;   EDGE      --  final threshold for dilated mask, in units of sigma
 ;                 default: unset => mask is not dilated
 ;   GUARD     --  width of guard band in x, y, v dimensions [pix, pix, pix]
@@ -86,6 +88,7 @@ PRO MAKEMOM, filename, errfile=errfile, rmsest=rmsest, maskfile=maskfile, $
 ;                 for GAIN2ERR if available.  Convert to K after errcube finalized.
 ;   20160917  tw  gzip compress the output error cube
 ;   20161021  tw  rename convfac as osamp (it's an oversampling factor)
+;   20161112  tw  add chmin parameter
 ;
 ;-
 
@@ -106,6 +109,9 @@ endif else begin
     thresh = 0.
     tstr = ''
 endelse
+if  n_elements(chmin) eq 0 then begin
+    chmin = 2
+endif
 if  keyword_set(edge) then begin
     estr = 'e'+string(edge,format='(I0)')
 endif else begin
@@ -252,7 +258,8 @@ emap = total(ecube, 3, /nan) / (total(ecube eq ecube, 3)>1)
 emap[where(emap eq 0.0,/null)] = !values.f_nan
 
 ; GENERATE MASKING CUBE (missing data locations are still kept in mask)
-mask = GENMASK(data,err=ecube,hd=hd,spar=smopar,sig=thresh,grow=edge,guard=guard)
+mask = GENMASK(data,err=ecube,hd=hd,spar=smopar,sig=thresh,chmin=chmin,$
+       grow=edge,guard=guard)
 mask = mask*exmask
 
 ; MASK HIGH NOISE AT EDGES
@@ -284,6 +291,7 @@ MASKMOMENT, data[*,*,[in_vrange]], mask[*,*,[in_vrange]], $
 mhd = hd
 bunit = SXPAR(mhd,'BUNIT')
 
+; UPDATE HISTORY IN FITS HEADER
 histlabel = 'IDL_MOMMAPS: '
 SXADDPAR, mhd, 'HISTORY', histlabel+systime()
 SXADDPAR, mhd, 'HISTORY', histlabel+'filename='+filename
@@ -294,6 +302,7 @@ if n_elements(maskfile) gt 0 then $
 SXADDPAR, mhd, 'HISTORY', histlabel+'smopar=['+strcompress(smopar[0],/r)+','+$
     strcompress(smopar[1],/r)+']'
 SXADDPAR, mhd, 'HISTORY', histlabel+'thresh='+strcompress(thresh,/r)
+SXADDPAR, mhd, 'HISTORY', histlabel+'chmin='+strcompress(chmin,/r)
 SXADDPAR, mhd, 'HISTORY', histlabel+'edge='+strcompress(edge,/r)
 SXADDPAR, mhd, 'HISTORY', histlabel+'guard=['+strcompress(guard[0],/r)+$
     ','+strcompress(guard[1],/r)+','+strcompress(guard[2],/r)+']'
@@ -325,17 +334,6 @@ endif else begin
     fluxunit = strtrim(bunit,2)+'*PIX'
     intfluxunit = strtrim(bunit,2)+'KM/S*PIX'
 endelse
-
-; npixels  = total(total(mask,1,/nan),1,/nan)
-; weights  = total(total(mask/ecube^2.,1,/nan),1,/nan)
-; weights[where(weights eq 0.0,/null)] = 1.
-; wgtdata  = total(total(mask*data/ecube^2.,1,/nan),1,/nan)
-; spcdata  = (wgtdata/weights) * convfac * npixels
-; spcerr   = sqrt(1./weights)  * convfac * npixels
-; npixels2 = total(total(exmask,1,/nan),1,/nan)
-; weights2 = total(total(exmask/ecube^2.,1,/nan),1,/nan)
-; weights2[where(weights2 eq 0.0,/null)] = 1.
-; spcerr2  = sqrt(1./weights2) * convfac * npixels2
 
 ; WEIGHTED MEAN SPECTRUM WITH FORMAL ERRORS
 wgtdata   = total(total(mask*data/ecube^2.,1,/nan),1,/nan)
@@ -379,10 +377,17 @@ if  n_elements(errfile) eq 0 then begin
     WRITEFITS, baseroot+'.rms.fits', float(emap), mhd
 ; OR OUTPUT RESCALED ERROR CUBE IF /DORMS or /RMSEST WAS SET
 endif else if keyword_set(dorms) or keyword_set(rmsest) then begin
-    SXADDPAR, mhd, 'DATAMAX', max(ecube,/nan), before='HISTORY'
-    SXADDPAR, mhd, 'DATAMIN', min(ecube,/nan), before='HISTORY'
-    WRITEFITS, baseroot+'.ecube.fits', float(ecube), mhd
-    spawn, 'gzip -f ' + baseroot+'.ecube.fits'
+    if  esz[0] eq 2 then begin
+        emap = ecube[*,*,0]
+        SXADDPAR, mhd, 'DATAMAX', max(emap,/nan), before='HISTORY'
+        SXADDPAR, mhd, 'DATAMIN', min(emap,/nan), before='HISTORY'
+        WRITEFITS, baseroot+'.rms.fits', float(emap), mhd
+    endif else begin
+        SXADDPAR, mhd, 'DATAMAX', max(ecube,/nan), before='HISTORY'
+        SXADDPAR, mhd, 'DATAMIN', min(ecube,/nan), before='HISTORY'
+        WRITEFITS, baseroot+'.ecube.fits', float(ecube), mhd
+        spawn, 'gzip -f ' + baseroot+'.ecube.fits'
+    endelse
 endif
 
 ; DROP 3RD AND 4TH AXIS KEYWORDS FOR REST OF OUTPUTS

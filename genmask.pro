@@ -28,6 +28,7 @@ END
 FUNCTION GENMASK, im, err=err, hd=hd,$
                   spar=spar,$
                   sig=sig,$
+                  chmin=chmin,$
                   grow=grow,$
                   guard=guard
 ;+
@@ -47,6 +48,7 @@ FUNCTION GENMASK, im, err=err, hd=hd,$
 ;             smooth spectra with a Gaussian function of fwhm=<spar[1]> km/s for 
 ;             signal detection.
 ;   [SIG]     detection threshold, in units of cube/smoothed cube sigma
+;   [CHMIN]   minimum number of velocity channels in initial mask
 ;   [GROW]    threshold for expanding core mask, in units of cube/smoothed cube sigma
 ;   [GUARD]   thickness of guard band in pixels
 ;
@@ -57,6 +59,7 @@ FUNCTION GENMASK, im, err=err, hd=hd,$
 ;
 ;   20130624  RX  introduced (for replacing grmask.pro and gsmask.pro)
 ;   20150528  TW  removed eprop option.
+;   20161112  TW  add CHMIN parameter
 ;   
 ;-
 
@@ -66,7 +69,6 @@ forward_function dilate_mask
 if not keyword_set(spar) then spar=[0.0,0.0]
 if not keyword_set(sig)  then sig =0.0
 if not keyword_set(grow) then grow=0.0
-
 im_smo=im
 sen_smo=err
 
@@ -79,32 +81,50 @@ if  spar[0] gt 0.0 then begin
         message,'ERROR - ' + errmsg,level=1
     endif
     sen_smo=ERR_CUBE(im_smo,planes=indgen(nchan))
-    ; calculate rms after clipping based on MIRIAD sigest.for
+    ; calculate smoothed rms after clipping based on MIRIAD sigest.for
     mask1 = abs(im_smo) lt 2.5*sqrt(!PI/2)*meanabsdev(im_smo,/nan)
     sen_smo=ERR_CUBE(im_smo,planes=indgen(nchan),mask=mask1)
 endif
 
-; GENERATE MASK BY SIGMA CLIPPING (MIN 2 CHANS)
+; GENERATE MASK BY SIGMA CLIPPING
 if  sig gt 0.0 then begin
     mask = im*0.0
-    mask[where(im_smo gt sen_smo*sig,ct,/null)]=1.0
-;        print,'Before dilation:',size(mask),total(mask,/nan)
-;        print,'Pixel count is',ct
-    mask = padding(mask,1)
-    mask = (mask*(shift(mask,0,0,1)+shift(mask,0,0,-1)) gt 0)
+    mask[where(im_smo gt sen_smo*sig, ct, /null)]=1.0
+;    print,'Before dilation:',size(mask),total(mask,/nan)
+;    print,'Pixel count is',ct
+    ; REQUIRE MINIMUM NUMBER OF CHANNELS
+    if chmin gt 1 then begin
+        mask = padding(mask,chmin-1)
+        for j = 2, chmin do begin
+            shmask = mask*0.0
+            for k = 1, j-1 do begin
+                shmask += shift(mask,0,0,k) + shift(mask,0,0,-k)
+            endfor
+            mask = mask * (shmask-j+2) gt 0
+        endfor
+    endif
     ; DILATE THE MASK IF REQUESTED
     if (total(mask,/nan) gt 0.0) and (grow gt 0.0) then begin
         ;print,'Excluding loners:',size(mask),total(mask,/nan)
         ; CONSTRAINT MASK
         growmask = im_smo gt grow*sen_smo
-        growmask = padding(growmask,1)
-        growmask = (growmask*(shift(growmask,0,0,1)+shift(growmask,0,0,-1)) gt 0)
+        ; REQUIRE MINIMUM NUMBER OF CHANNELS (CURRENTLY DISABLED)
+        if chmin gt 1 then begin
+            growmask = padding(growmask,chmin-1)
+;            for j = 2, chmin do begin
+;                shmask = growmask*0.0
+;                for k = 1, j-1 do begin
+;                    shmask += shift(growmask,0,0,k) + shift(growmask,0,0,-k)
+;                endfor
+;                growmask = growmask * (shmask-j+2) gt 0
+;            endfor
+        endif
         ;print,'Growth mask:',size(growmask),total(growmask,/nan)
         ; EXPAND MASK
         mask = float(dilate_mask(mask, constraint = growmask))
         ;print,'Expanded mask:',size(mask),total(mask,/nan)
     endif
-    mask = padding(mask,-1)  
+    if chmin gt 1 then mask = padding(mask,-chmin+1)  
     ; ADD A GUARD BAND IF REQUESTED
     if total(guard) gt 0 then begin
         mask = MASKGUARD_3D(mask, guard = guard)
