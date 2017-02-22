@@ -126,9 +126,13 @@ endif else begin
     guard = [0, 0, 0]
     gstr = ''
 endelse
-galname=file_basename(filename,'.fits')
-if (galname eq filename) then galname=file_basename(filename,'.fits.gz')
-if (galname eq filename) then message,'Input file extension not recognized',/info
+
+if  strmatch(filename,'*.fits.gz',/f) then galname=file_basename(filename,'.fits.gz',/f)
+if  strmatch(filename,'*.fits',/f) then galname=file_basename(filename,'.fits',/f)
+if  ~(strmatch(filename,'*.fits',/f) or strmatch(filename,'*.fits.gz',/f)) then begin
+    galname=file_basename(filename)
+    message,'Input file extension not recognized',/info
+endif
 if  keyword_set(baseroot) eq 0 then begin
     baseroot = galname + '.' + smostr + tstr + estr + gstr
     if strpos(baseroot,'.',/reverse_search) eq strlen(baseroot)-1 then $
@@ -317,8 +321,8 @@ SXADDPAR,mhd,'DATAMAX',2.0, before='HISTORY'
 SXADDPAR,mhd,'DATAMIN',-1.0, before='HISTORY'
 nan_tag=where(data ne data,nan_ct)
 if  nan_ct ne 0 then mask[nan_tag]=!values.f_nan
-WRITEFITS,baseroot+'.mask.fits',float(mask),mhd
-spawn, 'gzip -f ' + baseroot+'.mask.fits'
+WRITEFITS,baseroot+'.mask.fits',float(mask),mhd,/compress
+
 
 ;SXADDPAR,mhd,'DATAMAX', max(mask*data,/nan), before='HISTORY'
 ;SXADDPAR,mhd,'DATAMIN', min(mask*data,/nan), before='HISTORY'
@@ -385,8 +389,7 @@ endif else if keyword_set(dorms) or keyword_set(rmsest) then begin
     endif else begin
         SXADDPAR, mhd, 'DATAMAX', max(ecube,/nan), before='HISTORY'
         SXADDPAR, mhd, 'DATAMIN', min(ecube,/nan), before='HISTORY'
-        WRITEFITS, baseroot+'.ecube.fits', float(ecube), mhd
-        spawn, 'gzip -f ' + baseroot+'.ecube.fits'
+        WRITEFITS, baseroot+'.ecube.fits', float(ecube), mhd,/compress
     endelse
 endif
 
