@@ -141,10 +141,10 @@ loadct,13,/silent
 cgimage,imxv,pos=subpos_xv,stretch=1,/noe
 loadct,0,/silent
 
-plot,[0,1],[min(vels),max(vels)],/nodata,/noe,pos=subpos_xv,$
+plot,[0,1],[min(vels),max(vels)],yrange=[vels[0],vels[-1]],/nodata,/noe,pos=subpos_xv,$
     xstyle=5,ystyle=1,yTICKINTERVAL=vinterval,$
     ytitle='Velocity [km/s]',color=cgcolor('red')
-plot,[0,1],[min(vels),max(vels)],/nodata,/noe,pos=subpos_xv,$
+plot,[0,1],[min(vels),max(vels)],yrange=[vels[0],vels[-1]],/nodata,/noe,pos=subpos_xv,$
     xstyle=5,ystyle=1,yTICKINTERVAL=vinterval,$
     ytitle='Velocity [km/s]',ticklen=0.0,ytick_get=vticks   
 imcontour,im,imhd,nlevels=10,$
@@ -157,10 +157,10 @@ subpos_yv=[posxn[3],posyn[1],posxn[4],posyn[2]]
 loadct,13,/silent
 cgimage,imvy,pos=subpos_yv,stretch=1,/noe;,minvalue=0.0
 loadct,0,/silent
-plot,[min(vels),max(vels)],[0,1],/nodata,/noe,pos=subpos_yv,$
+plot,[min(vels),max(vels)],[0,1],xrange=[vels[0],vels[-1]],/nodata,/noe,pos=subpos_yv,$
     xstyle=1,ystyle=5,xticks=3,xtickinterval=vinterval,$
     xtitle='',color=cgcolor('red'),xtickformat='(A1)'
-plot,[min(vels),max(vels)],[0,1],/nodata,/noe,pos=subpos_yv,$
+plot,[min(vels),max(vels)],[0,1],xrange=[vels[0],vels[-1]],/nodata,/noe,pos=subpos_yv,$
     xstyle=1,ystyle=5,xticks=3,xtickinterval=vinterval,$
     xtitle='',ticklen=0.0,xtickformat='(A1)'
 imcontour,im,imhd,nlevels=10,$
