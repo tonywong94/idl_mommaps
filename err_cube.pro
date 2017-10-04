@@ -39,6 +39,8 @@ FUNCTION ERR_CUBE,  im, $
 
 ; SELECT REGION AND NORMALIZE NOISE FOR ERROR ESTIMATIONS
 dim=size(im,/dimension)
+if  n_elements(dim) eq 2 then dim=[dim,1]
+
 if  keyword_set(pattern) then begin
   img=pattern
   img[where(img le 0.0,/null)]=!VALUES.F_NAN
@@ -56,10 +58,12 @@ endelse
 
 ; missing data will be Nan in assi
 assi=im*0.0
-assi2d=total(im,3,/nan)*0.0+1.0    
+if  size(im,/n_d) eq 3 then assi2d=total(im,3,/nan)*0.0+1.0 $
+                         else assi2d=im*0.0+1.0
+
 if not keyword_set(planes) then begin
   sch=where(total(total(im eq im,1),1) ne 0)
-  if  keyword_set(useall) then planes = sch $
+  if  keyword_set(useall) or size(im,/n_d) eq 2  then planes = sch $
       else planes=[sch[0],sch[1],sch[-2],sch[-1]]
 endif
 for i=0,n_elements(planes)-1 do begin

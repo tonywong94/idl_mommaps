@@ -217,8 +217,8 @@ if  n_elements(mask) eq 0 $
     else imout[where(finite(im,/NAN) or mask ne 0.0,/null)]=!VALUES.F_NAN
 if  keyword_set(keep0) then imout[where(im eq 0.0,/null)]=0.0
 
-SXADDPAR, hdout, 'DATAMAX', max(imout,/nan)
-SXADDPAR, hdout, 'DATAMIN', min(imout,/nan)
+SXADDPAR, hdout, 'DATAMAX', max(imout,/nan), before='HISTORY'
+SXADDPAR, hdout, 'DATAMIN', min(imout,/nan), before='HISTORY'
 
 floating_point_underflow=32
 status = Check_Math()         ; Get status and reset accumulated math error register.

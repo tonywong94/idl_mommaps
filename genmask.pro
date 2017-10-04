@@ -42,7 +42,7 @@ FUNCTION GENMASK, im, err=err, hd=hd,$
 ; INPUTS:
 ;   IM        data cube
 ;   ERR       error cube
-;   HD        data header
+;   [HD]      data header (required if spar[0]>0.0)
 ;   [SPAR]    2-element vector
 ;             We will degrade the cube angular resolution to <spar[0]> arcsec, and
 ;             smooth spectra with a Gaussian function of fwhm=<spar[1]> km/s for 
@@ -60,21 +60,26 @@ FUNCTION GENMASK, im, err=err, hd=hd,$
 ;   20130624  RX  introduced (for replacing grmask.pro and gsmask.pro)
 ;   20150528  TW  removed eprop option.
 ;   20161112  TW  add CHMIN parameter
+;   20170824  RX  add compatibility with 2D images
 ;   
 ;-
 
  
 forward_function dilate_mask
 
-if not keyword_set(spar) then spar=[0.0,0.0]
-if not keyword_set(sig)  then sig =0.0
-if not keyword_set(grow) then grow=0.0
+if  not keyword_set(spar)   then spar=[0.0,0.0]
+if  not keyword_set(sig)    then sig =0.0
+if  not keyword_set(grow)   then grow=0.0
+if  not keyword_set(chmin)  then chmin=1 
+if  not keyword_set(guard)  then guard=0
 im_smo=im
 sen_smo=err
 
 ; SMOOTH DATA IF REQUESTED
 if  spar[0] gt 0.0 then begin
-    nchan=(size(im,/d))[2]
+    nchan=1
+    if  size(im,/n_d) eq 3 then nchan=(size(im,/d))[2]
+    if  n_elements(spar) eq 1 then spar=[spar,0.0]
     SMOOTH3D,im/err,hd,im_smo,hd_smo,[spar[0],spar[0],0.],svel=spar[1],ifail=ifail
     if  ifail ne 0 then begin
         errmsg = 'ERROR - the target beam is too small!'

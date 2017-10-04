@@ -149,7 +149,7 @@ if  n_elements(xyrange) eq 4 then begin
     HEXTRACT3D, data, hd, tmp, tmphd, xyrange
     SXADDPAR, tmphd, 'DATAMAX', max(tmp,/nan), before='HISTORY'
     SXADDPAR, tmphd, 'DATAMIN', min(tmp,/nan), before='HISTORY'
-    ;WRITEFITS, galname+'.subreg.fits', float(tmp), tmphd
+    ;WRITEFITS, baseroot+'.subreg.fits', float(tmp), tmphd
     data=tmp
     hd=tmphd
 endif
@@ -157,8 +157,8 @@ endif
 ; OUTPUT SOME INFO
 print,replicate('-',35)
 print,'spectral cube size: ',size(data,/d)
-print,'pixel spacing     : '+string(abs(h.cdelt[0])*3600.,format='(F4.1)') $
-    +' arcsec x '+string(abs(h.cdelt[1])*3600.,format='(F4.1)') $
+print,'pixel spacing     : '+string(abs(h.cdelt[0])*3600.,format='(F5.2)') $
+    +' arcsec x '+string(abs(h.cdelt[1])*3600.,format='(F5.2)') $
     +' arcsec x '+string(h.cdelt[2]/1.e3,format='(F5.1)')+' km/s'
 print,'beam FWHM maj, min: '+string(h.bmaj,format='(F6.2)')+'  ' $
     +string(h.bmin,format='(F6.2)')+'   eff: ' $

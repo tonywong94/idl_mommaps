@@ -1,11 +1,17 @@
 # idl_mommaps
 IDL package for generating moment maps from radio data cubes
 
-Requires: IDL Astronomy Library <http://idlastro.gsfc.nasa.gov>
+Requires:
 
-Plotting routines use Coyote Graphics: <http://www.idlcoyote.com/documents/programs.php>
 
-The main program to run is *makemom*.  Input parameters are summarized in the header of that program.
+[IDL Astronomy Library:](http://idlastro.gsfc.nasa.gov)
+        <https://github.com/wlandsman/IDLAstro>
+
+[Coyote Graphics Plotting Library:](http://www.idlcoyote.com/documents/programs.php)
+        <https://github.com/idl-coyote/coyote>
+
+
+The main program to run is [*makemom.pro*](https://github.com/tonywong94/idl_mommaps/blob/master/makemom.pro).  Input parameters are summarized in the header of that program.
 
 Contributions from Tony Wong, Rui Xue, Annie Hughes, and Erik Rosolowsky.
 
