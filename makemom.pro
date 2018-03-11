@@ -320,19 +320,15 @@ if n_elements(vrange) gt 0 then $
 SXADDPAR,mhd,'DATAMAX',2.0, before='HISTORY'
 SXADDPAR,mhd,'DATAMIN',-1.0, before='HISTORY'
 nan_tag=where(data ne data,nan_ct)
-if  nan_ct ne 0 then mask[nan_tag]=!values.f_nan
-WRITEFITS,baseroot+'.mask.fits',float(mask),mhd,/compress
-
-
-;SXADDPAR,mhd,'DATAMAX', max(mask*data,/nan), before='HISTORY'
-;SXADDPAR,mhd,'DATAMIN', min(mask*data,/nan), before='HISTORY'
-;WRITEFITS,baseroot+'.mskd.fits',float(mask*data),mhd
+if nan_ct ne 0 then mask[nan_tag]=!values.f_nan
+if total(finite(mask)) ge 1 then $
+    WRITEFITS,baseroot+'.mask.fits',float(mask),mhd,/compress
 
 ; OUTPUT MASKED FLUX SPECTRUM WITH FORMAL AND CONSERVATIVE ERRORS
 if strpos(strupcase(sxpar(mhd,'BUNIT')),'JY/B') ne -1 then begin
     osamp = h.ppbeam
     fluxunit = 'JY'
-    intfluxunit = 'JY KM/S'
+    intfluxunit = 'JY*KM/S'
 endif else begin
     osamp = 1.
     fluxunit = strtrim(bunit,2)+'*PIX'
@@ -352,13 +348,13 @@ meanerr2  = sqrt(1./weights2)
 
 ; INTEGRATED SPECTRUM AND FLUX
 fluxdata = total(total(      mask*data  ,1,/nan),1,/nan) / osamp
-fluxerr1 = total(total((  mask*ecube)^2.,1,/nan),1,/nan) / osamp
-fluxerr2 = total(total((exmask*ecube)^2.,1,/nan),1,/nan) / osamp
-intfluxdata =      total(fluxdata,/nan) *abs(h.cdelt[2])/1.0e3
-intfluxerr1 = sqrt(total(fluxerr1,/nan))*abs(h.cdelt[2])/1.0e3
-intfluxerr2 = sqrt(total(fluxerr2,/nan))*abs(h.cdelt[2])/1.0e3
-fluxerr1    = sqrt(fluxerr1)
-fluxerr2    = sqrt(fluxerr2)
+fluxerr1 = total(total((  mask*ecube)^2.,1,/nan),1,/nan) * h.ppbeam
+fluxerr2 = total(total((exmask*ecube)^2.,1,/nan),1,/nan) * h.ppbeam
+intfluxdata =      total(fluxdata,/nan) * abs(h.cdelt[2])/1.0e3
+intfluxerr1 = sqrt(total(fluxerr1,/nan))/osamp*abs(h.cdelt[2])/1.0e3
+intfluxerr2 = sqrt(total(fluxerr2,/nan))/osamp*abs(h.cdelt[2])/1.0e3
+fluxerr1    = sqrt(fluxerr1) / osamp
+fluxerr2    = sqrt(fluxerr2) / osamp
 
 ; OUTPUT WEIGHTED MEAN SPECTRUM
 write_csv,baseroot+'.mean.out',h.v,meandata,meanerr1,meanerr2, $
@@ -401,11 +397,12 @@ SXDELPAR, mhd, ['CTYPE4','CRVAL4','CRPIX4','CDELT4','CUNIT4']
 if total(finite(peak)) ge 1 then begin
     SXADDPAR, mhd, 'DATAMAX', max(peak,/nan), before='HISTORY'
     SXADDPAR, mhd, 'DATAMIN', min(peak,/nan), before='HISTORY'
+    WRITEFITS, baseroot+'.peak.fits', float(peak), mhd
 endif else begin
-    SXADDPAR, mhd, 'DATAMAX', 0.0, before='HISTORY'
-    SXADDPAR, mhd, 'DATAMIN', 0.0, before='HISTORY'
+    print,'Peak intensity is completely blank: not written'
+;    SXADDPAR, mhd, 'DATAMAX', 0.0, before='HISTORY'
+;    SXADDPAR, mhd, 'DATAMIN', 0.0, before='HISTORY'
 endelse
-WRITEFITS, baseroot+'.peak.fits', float(peak), mhd
 
 ; PEAK SNR (UNMASKED)
 SXADDPAR, mhd, 'BUNIT', 'SNR', before='HISTORY'
@@ -419,52 +416,53 @@ mom0gm = mom0 * abs(h.cdelt[2]) / 1.0e3
 if total(finite(mom0gm)) ge 1 then begin
     SXADDPAR, mhd, 'DATAMAX', max(mom0gm,/nan), before='HISTORY'
     SXADDPAR, mhd, 'DATAMIN', min(mom0gm,/nan), before='HISTORY'
+    WRITEFITS, baseroot+'.mom0.fits', float(mom0gm), mhd
 endif else begin
-    SXADDPAR, mhd, 'DATAMAX', 0.0, before='HISTORY'
-    SXADDPAR, mhd, 'DATAMIN', 0.0, before='HISTORY'
+    print,'Moment 0 is completely blank: not written'
 endelse
-WRITEFITS, baseroot+'.mom0.fits', float(mom0gm), mhd
 emom0gm = emom0 * abs(h.cdelt[2]) / 1.0e3
 if total(finite(emom0gm)) ge 1 then begin
     SXADDPAR, mhd, 'DATAMAX', max(emom0gm,/nan), before='HISTORY'
     SXADDPAR, mhd, 'DATAMIN', min(emom0gm,/nan), before='HISTORY'
+    WRITEFITS, baseroot+'.emom0.fits', float(emom0gm), mhd
+    ; CONSERVATIVE MOM0 ERROR
+    emommx = emommx * abs(h.cdelt[2]) / 1.0e3
+    SXADDPAR, mhd, 'DATAMAX', max(emommx,/nan), before='HISTORY'
+    SXADDPAR, mhd, 'DATAMIN', min(emommx,/nan), before='HISTORY'
+    WRITEFITS, baseroot+'.emom0max.fits', float(emommx), mhd
 endif
-WRITEFITS, baseroot+'.emom0.fits', float(emom0gm), mhd
-
-; CONSERVATIVE MOM0 ERROR
-emommx = emommx * abs(h.cdelt[2]) / 1.0e3
-SXADDPAR, mhd, 'DATAMAX', max(emommx,/nan), before='HISTORY'
-SXADDPAR, mhd, 'DATAMIN', min(emommx,/nan), before='HISTORY'
-WRITEFITS, baseroot+'.emom0max.fits', float(emommx), mhd
 
 ; MOMENT 1 AND ERROR
 SXADDPAR, mhd, 'BUNIT', 'KM/S', before='HISTORY'
 if total(finite(mom1)) ge 1 then begin
     SXADDPAR, mhd, 'DATAMAX', max(mom1,/nan), before='HISTORY'
     SXADDPAR, mhd, 'DATAMIN', min(mom1,/nan), before='HISTORY'
+    WRITEFITS, baseroot+'.mom1.fits', float(mom1), mhd
 endif else begin
-    SXADDPAR, mhd, 'DATAMAX', 0.0, before='HISTORY'
-    SXADDPAR, mhd, 'DATAMIN', 0.0, before='HISTORY'
+    print,'Moment 1 is completely blank: not written'
 endelse
-WRITEFITS, baseroot+'.mom1.fits', float(mom1), mhd
 if total(finite(emom1)) ge 1 then begin
     SXADDPAR, mhd, 'DATAMAX', max(emom1,/nan), before='HISTORY'
     SXADDPAR, mhd, 'DATAMIN', min(emom1,/nan), before='HISTORY'
+    WRITEFITS, baseroot+'.emom1.fits', float(emom1), mhd
 endif
-WRITEFITS, baseroot+'.emom1.fits', float(emom1), mhd
+
+; PLOT MOMENT 0 AND MOMENT 1
 PLTMOM, baseroot
 
 ; MOMENT 2 AND ERROR
 if total(finite(mom2)) ge 1 then begin
     SXADDPAR, mhd, 'DATAMAX', max(mom2,/nan), before='HISTORY'
     SXADDPAR, mhd, 'DATAMIN', min(mom2,/nan), before='HISTORY'
-endif
-WRITEFITS, baseroot+'.mom2.fits', float(mom2), mhd
+    WRITEFITS, baseroot+'.mom2.fits', float(mom2), mhd
+endif else begin
+    print,'Moment 2 is completely blank: not written'
+endelse
 if total(finite(emom2)) ge 1 then begin
     SXADDPAR, mhd, 'DATAMAX', max(emom2,/nan), before='HISTORY'
     SXADDPAR, mhd, 'DATAMIN', min(emom2,/nan), before='HISTORY'
+    WRITEFITS, baseroot+'.emom2.fits', float(emom2), mhd
 endif
-WRITEFITS, baseroot+'.emom2.fits', float(emom2), mhd
 
 ; 2D PROJECTION OF THE MASK
 if  thresh gt 0.0 and total(mask,/nan) gt h.ppbeam then begin
@@ -475,7 +473,7 @@ if  thresh gt 0.0 and total(mask,/nan) gt h.ppbeam then begin
 endif
 
 ; MOM0 in XV and YV (OPTIONAL)
-if  keyword_set(pvmom0) then begin
+if  keyword_set(pvmom0) and total(finite(mask)) ge 1 then begin
     MASKMOMENT_PV,data,hd,mask,mom0xv,mom0vy,mom0xvhd=mom0xvhd,mom0vyhd=mom0vyhd,$
         vrange=vrange
     WRITEFITS, baseroot+'.mom0xv.fits',mom0xv,mom0xvhd

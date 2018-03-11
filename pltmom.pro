@@ -30,8 +30,8 @@ PRO PLTMOM,prefix,scale=scale,label=label
 
 ;   CHECK IMAGE FILES
 
-if  ~file_test(prefix+'.mom0.fits') and $
-    ~file_test(prefix+'.emom0max.fits') and $
+if  ~file_test(prefix+'.mom0.fits') or $
+    ~file_test(prefix+'.emom0max.fits') or $
     ~file_test(prefix+'.mom1.fits') then begin
     print,'no mom0/emom0/mom1 image found'
     return
