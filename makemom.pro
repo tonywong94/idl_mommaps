@@ -425,12 +425,12 @@ if total(finite(emom0gm)) ge 1 then begin
     SXADDPAR, mhd, 'DATAMAX', max(emom0gm,/nan), before='HISTORY'
     SXADDPAR, mhd, 'DATAMIN', min(emom0gm,/nan), before='HISTORY'
     WRITEFITS, baseroot+'.emom0.fits', float(emom0gm), mhd
-    ; CONSERVATIVE MOM0 ERROR
-    emommx = emommx * abs(h.cdelt[2]) / 1.0e3
-    SXADDPAR, mhd, 'DATAMAX', max(emommx,/nan), before='HISTORY'
-    SXADDPAR, mhd, 'DATAMIN', min(emommx,/nan), before='HISTORY'
-    WRITEFITS, baseroot+'.emom0max.fits', float(emommx), mhd
 endif
+; CONSERVATIVE MOM0 ERROR
+emommx = emommx * abs(h.cdelt[2]) / 1.0e3
+SXADDPAR, mhd, 'DATAMAX', max(emommx,/nan), before='HISTORY'
+SXADDPAR, mhd, 'DATAMIN', min(emommx,/nan), before='HISTORY'
+WRITEFITS, baseroot+'.emom0max.fits', float(emommx), mhd
 
 ; MOMENT 1 AND ERROR
 SXADDPAR, mhd, 'BUNIT', 'KM/S', before='HISTORY'
