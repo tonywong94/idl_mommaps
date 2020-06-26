@@ -13,6 +13,8 @@ Requires:
 
 The main program to run is [*makemom.pro*](https://github.com/tonywong94/idl_mommaps/blob/master/makemom.pro).  Input parameters are summarized in the header of that program.
 
+As of 2020, this package is no longer being developed - please switch to the [python version](https://github.com/tonywong94/maskmoment) instead.
+
 Contributions from Tony Wong, Rui Xue, Annie Hughes, and Erik Rosolowsky.
 
 * v1 - 27may2015 - initial release, still cleaning up documentation.
